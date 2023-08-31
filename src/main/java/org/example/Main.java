@@ -11,7 +11,7 @@ import org.example.ui.MyListenerAdapter;
 public class Main {
     public static void main(String[] args) {
         JDA jda;
-        String token = "MTE0NTA1OTk3MDQ3NjQyMTI0MA.GdKQUv.qcZLXrjZgPj9yDEnBZ9CoFNMX7JrJ3JX1nvVTg";
+        String token = "MTE0NTA1OTk3MDQ3NjQyMTI0MA.GCoRjD.7EwItC8N_KZ52byF7b1mNTZDRQfricZRpsUyuo";
 
         try {
             Database.getInstance();

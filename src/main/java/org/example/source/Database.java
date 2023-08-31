@@ -2,12 +2,7 @@ package org.example.source;
 
 import org.example.models.Debater;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,8 +13,12 @@ public class Database {
 
     private Database(String dbName) {
         try {
-            Class.forName("org.sqlite.JDBC");
-            this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbName);
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            String username = "u5068_vEssE0KzVg";
+            String password = "EtBKaPUf5VtIAdco!a=OTOVk";
+            String url = "jdbc:mysql://u5068_vEssE0KzVg:EtBKaPUf5VtIAdco!a%3DOTOVk@172.105.158.16:3306/s5068_debate_club";
+            this.connection = DriverManager.getConnection(url, username, password);
+
             createTable();
         } catch (ClassNotFoundException | SQLException e) {
             e.printStackTrace();
@@ -28,31 +27,27 @@ public class Database {
 
     public static Database getInstance() {
         if (instance == null) {
-            instance = new Database("debate_club.db");
+            instance = new Database("debate_club");
         }
         return instance;
     }
 
     private void createTable() {
-        Statement stmt = null;
-        try {
-            stmt = connection.createStatement();
-            String sql = "CREATE TABLE IF NOT EXISTS DEBATERS " +
-                    "(ID INT PRIMARY KEY NOT NULL," +
-                    " NICKNAME TEXT NOT NULL, " +
-                    " DEBATE_COUNT INT, " +
-                    " WINNER INT, " +
-                    " BALLS INT)";
+        if (connection != null) {
+            try (Statement stmt = connection.createStatement()) {
+                String sql = "CREATE TABLE IF NOT EXISTS DEBATERS " +
+                        "(ID BIGINT PRIMARY KEY NOT NULL," +
+                        " NICKNAME VARCHAR(255) NOT NULL, " +
+                        " DEBATE_COUNT INT, " +
+                        " WINNER INT, " +
+                        " BALLS INT);";
 
-            stmt.executeUpdate(sql);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (stmt != null) stmt.close();
+                stmt.executeUpdate(sql);
             } catch (SQLException e) {
                 e.printStackTrace();
             }
+        } else {
+            System.err.println("Соединение с БД не установлено");
         }
     }
 
@@ -61,34 +56,29 @@ public class Database {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
-            String sql = "INSERT OR IGNORE INTO DEBATERS (ID, NICKNAME) VALUES (?, ?);";
+            String sql = "INSERT IGNORE INTO DEBATERS (ID, NICKNAME) VALUES (?, ?);";
             pstmt = connection.prepareStatement(sql);
 
             String updateSql = "UPDATE DEBATERS SET NICKNAME = ? WHERE ID = ?;";
             updateStmt = connection.prepareStatement(updateSql);
 
             for (Debater debater : debaters) {
-                pstmt.setLong(1, debater.getId());
+                pstmt.setString(1, String.valueOf(debater.getId()));
                 pstmt.setString(2, debater.getNickname());
                 pstmt.addBatch();
 
                 updateStmt.setString(1, debater.getNickname());
-                updateStmt.setLong(2, debater.getId());
+                updateStmt.setString(2, String.valueOf(debater.getId())); // Здесь также используется setString вместо setLong
                 updateStmt.addBatch();
             }
 
             pstmt.executeBatch();
             updateStmt.executeBatch();
-
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-                if (updateStmt != null) updateStmt.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            closeStatement(pstmt);
+            closeStatement(updateStmt);
         }
     }
 
@@ -96,52 +86,26 @@ public class Database {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
-            String sql = "INSERT OR IGNORE INTO DEBATERS (ID, NICKNAME) VALUES (?, ?);";
+            String sql = "INSERT IGNORE INTO DEBATERS (ID, NICKNAME) VALUES (?, ?);";
             pstmt = connection.prepareStatement(sql);
 
             String updateSql = "UPDATE DEBATERS SET NICKNAME = ? WHERE ID = ?;";
             updateStmt = connection.prepareStatement(updateSql);
 
-            pstmt.setLong(1, debater.getId());
+            pstmt.setString(1, String.valueOf(debater.getId()));
             pstmt.setString(2, debater.getNickname());
             pstmt.executeUpdate();
 
             updateStmt.setString(1, debater.getNickname());
-            updateStmt.setLong(2, debater.getId());
+            updateStmt.setString(2, String.valueOf(debater.getId()));
             updateStmt.executeUpdate();
-
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-                if (updateStmt != null) updateStmt.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            closeStatement(pstmt);
+            closeStatement(updateStmt);
         }
     }
-
-
-    public void deleteDebater(long id) {
-        PreparedStatement pstmt = null;
-        try {
-            String sql = "DELETE FROM DEBATERS WHERE ID = ?;";
-            pstmt = connection.prepareStatement(sql);
-            pstmt.setLong(1, id);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-
 
     public List<Debater> readAllDebaters() {
         Statement stmt = null;
@@ -176,6 +140,29 @@ public class Database {
             }
         }
         return debaters;
+    }
+
+    public void deleteDebater(Long id) {
+        PreparedStatement pstmt = null;
+        try {
+            String sql = "DELETE FROM DEBATERS WHERE ID = ?;";
+            pstmt = connection.prepareStatement(sql);
+            pstmt.setString(1, String.valueOf(id));
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            closeStatement(pstmt);
+        }
+    }
+
+
+    private void closeStatement(PreparedStatement stmt) {
+        try {
+            if (stmt != null) stmt.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
 }

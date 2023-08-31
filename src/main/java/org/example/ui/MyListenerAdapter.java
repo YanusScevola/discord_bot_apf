@@ -1,5 +1,6 @@
 package org.example.ui;
 
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
@@ -15,47 +16,48 @@ import org.jetbrains.annotations.NotNull;
 public class MyListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
-    InfoTextChat infoTextChat;
+    RatingTextChat ratingTextChat;
 
 
-    public void onReady(ReadyEvent event) {
+    public void onReady(@NotNull ReadyEvent event) {
         apiRepository = new ApiRepository(event.getJDA());
         dbRepository = new DbRepository();
 
-        infoTextChat = new InfoTextChat(apiRepository, dbRepository);
+        ratingTextChat = new RatingTextChat(apiRepository, dbRepository);
 
     }
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
-        infoTextChat.onGuildMemberJoin(event);
+        ratingTextChat.onGuildMemberJoin(event);
     }
 
     @Override
     public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
-        infoTextChat.onGuildMemberRoleAdd(event);
+        ratingTextChat.onGuildMemberRoleAdd(event);
     }
 
     @Override
     public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
-        infoTextChat.onGuildMemberRoleRemove(event);
+        ratingTextChat.onGuildMemberRoleRemove(event);
     }
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event) {
-        String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
-
-        if (channelId.equals(ChannelIds.INFORMATION)) {
-            infoTextChat.onMessageReceived(event);
+    public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+        if (event.getChannel().getType() == ChannelType.TEXT) {
+            String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
+            if (channelId.equals(ChannelIds.RATING)) {
+                ratingTextChat.onMessageReceived(event);
+            }
         }
     }
 
     @Override
-    public void onButtonInteraction(ButtonInteractionEvent event) {
+    public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
 
-        if (channelId.equals(ChannelIds.INFORMATION)) {
-            infoTextChat.onButtonInteraction(event);
+        if (channelId.equals(ChannelIds.RATING)) {
+            ratingTextChat.onButtonInteraction(event);
         }
 
     }

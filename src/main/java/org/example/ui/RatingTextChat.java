@@ -8,7 +8,6 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import org.example.Utils;
 import org.example.constants.ButtonIds;
 import org.example.constants.ChannelIds;
 import org.example.constants.MessageIds;
@@ -19,14 +18,16 @@ import org.example.repository.DbRepository;
 import org.example.repository.DebaterMapper;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
 
-public class InfoTextChat implements Chat {
+public class RatingTextChat implements Chat {
     public enum DebaterProperty {DEBATE_COUNT, WINNER, BALLS}
-    DebaterProperty debaterProperty;
-    TextChannel infoTextChannel;
+    DebaterProperty debaterProperty = DebaterProperty.WINNER;
+    TextChannel RatingChannel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
     Button debatersBtn;
@@ -35,24 +36,24 @@ public class InfoTextChat implements Chat {
     Button currentBtn;
     List<Button> allButtonsList;
 
-    public InfoTextChat(ApiRepository apiRepository, DbRepository dbRepository) {
+    public RatingTextChat(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
-        infoTextChannel = apiRepository.getTextChannel(ChannelIds.INFORMATION);
+        RatingChannel = apiRepository.getTextChannel(ChannelIds.RATING);
 
-        winnsBtn = Button.secondary(ButtonIds.TEAMS, "Победы").withDisabled(true);;
+        winnsBtn = Button.secondary(ButtonIds.TEAMS, "Победы");
         debatersBtn = Button.secondary(ButtonIds.DEBATERS, "Дебаты");
         ballsBtn = Button.secondary(ButtonIds.MUSIC, "Баллы");
 
         allButtonsList = List.of(winnsBtn,debatersBtn, ballsBtn);
 
 
-        infoTextChannel.getHistoryFromBeginning(1).queue(history -> {
+        RatingChannel.getHistoryFromBeginning(1).queue(history -> {
             if (history.isEmpty()) {
                 List<Debater> debaterList = dbRepository.getAllDebaters();
-                List<Debater> sortedDebaterList = Utils.sortDebaters(debaterList, DebaterProperty.WINNER);
+                List<Debater> sortedDebaterList = sortDebaters(debaterList, DebaterProperty.WINNER);
                 String nicknamesRow = getRowsDebaters(sortedDebaterList, DebaterProperty.WINNER);
-                infoTextChannel.sendMessage(nicknamesRow)
+                RatingChannel.sendMessage(nicknamesRow)
                         .setActionRow(allButtonsList)
                         .queue();
             } else {
@@ -77,7 +78,7 @@ public class InfoTextChat implements Chat {
     public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
         if (event.getRoles().stream().anyMatch(role -> role.getId().equals(RoleIds.DEBATERS))) {
             dbRepository.insertDebater(DebaterMapper.mapFromMember(event.getMember()));
-            infoTextChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
+            RatingChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
                     updateDebatersListView(debaters, debaterProperty)
             );
         }
@@ -87,7 +88,7 @@ public class InfoTextChat implements Chat {
     public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
         if (event.getRoles().stream().anyMatch(role -> role.getId().equals(RoleIds.DEBATERS))) {
             dbRepository.deleteDebater(DebaterMapper.mapFromMember(event.getMember()).getId());
-            infoTextChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
+            RatingChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
                     updateDebatersListView(debaters, debaterProperty)
             );
         }
@@ -96,7 +97,7 @@ public class InfoTextChat implements Chat {
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) return;
-        if (!event.getChannel().getId().equals(ChannelIds.INFORMATION)) return;
+        if (!event.getChannel().getId().equals(ChannelIds.RATING)) return;
 
 //        String message = event.getMessage().getContentDisplay();
 //        updateDebatersListView(event.getMessage());
@@ -138,7 +139,7 @@ public class InfoTextChat implements Chat {
 
     private void updateDebatersListView(@NotNull Message message, DebaterProperty property) {
         List<Debater> debaterList = dbRepository.getAllDebaters();
-        List<Debater> sortedDebaterList = Utils.sortDebaters(debaterList, property);
+        List<Debater> sortedDebaterList = sortDebaters(debaterList, property);
         String nicknamesRow = getRowsDebaters(sortedDebaterList, property);
         message.editMessage(nicknamesRow).queue();
     }
@@ -174,6 +175,28 @@ public class InfoTextChat implements Chat {
         limitedString = limitedString.substring(0, Math.min(limitedString.length(), 2000));
 
         return limitedString;
+    }
+
+
+    public List<Debater> sortDebaters(List<Debater> debaters, RatingTextChat.DebaterProperty property) {
+        Collections.sort(debaters, new Comparator<Debater>() {
+            @Override
+            public int compare(Debater o1, Debater o2) {
+                int result = 0;
+
+                switch (property) {
+                    case WINNER -> result = Integer.compare(o2.getWinner(), o1.getWinner());
+                    case DEBATE_COUNT -> result = Integer.compare(o2.getDebateCount(), o1.getDebateCount());
+                    case BALLS -> result = Integer.compare(o2.getBalls(), o1.getBalls());
+                    default -> {
+                    }
+                }
+
+                return result;
+            }
+        });
+
+        return debaters;
     }
 
 
