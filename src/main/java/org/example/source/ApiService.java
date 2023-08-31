@@ -21,11 +21,6 @@ public class ApiService {
     private ApiService() {
     }
 
-    public static void initialize(JDA jda) {
-
-
-    }
-
     private static class SingletonHolder {
         private static final ApiService INSTANCE = new ApiService();
     }
@@ -71,9 +66,9 @@ public class ApiService {
                                 .collect(Collectors.toList());
                         internalFuture.complete(filteredMembers);
                     })
-                    .onError(e -> {
-                        internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e));
-                    });
+                    .onError(e ->
+                            internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
+                    );
             try {
                 return internalFuture.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -96,9 +91,6 @@ public class ApiService {
 
         return future;
     }
-
-
-
 
 
 }

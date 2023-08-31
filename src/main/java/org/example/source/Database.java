@@ -1,17 +1,21 @@
 package org.example.source;
 
 import org.example.models.Debater;
-
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Database {
-
     private static Database instance;
     private Connection connection;
+    private static final Logger logger = LoggerFactory.getLogger(Database.class);
 
-    private Database(String dbName) {
+
+
+    private Database() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             String username = "u5068_vEssE0KzVg";
@@ -21,13 +25,14 @@ public class Database {
 
             createTable();
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            logger.debug("Ошибка подключения к БД", e);
+
         }
     }
 
     public static Database getInstance() {
         if (instance == null) {
-            instance = new Database("debate_club");
+            instance = new Database();
         }
         return instance;
     }
@@ -44,15 +49,15 @@ public class Database {
 
                 stmt.executeUpdate(sql);
             } catch (SQLException e) {
-                e.printStackTrace();
+                logger.debug("Ошибка создания таблицы", e);
             }
         } else {
-            System.err.println("Соединение с БД не установлено");
+            logger.debug("Ошибка подключения к БД");
         }
     }
 
 
-    public void insertDebaters(List<Debater> debaters) {
+    public void insertDebaters(@NotNull List<Debater> debaters) {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
@@ -75,14 +80,14 @@ public class Database {
             pstmt.executeBatch();
             updateStmt.executeBatch();
         } catch (SQLException e) {
-            e.printStackTrace();
+             logger.debug("Ошибка вставки дебатеров", e);
         } finally {
             closeStatement(pstmt);
             closeStatement(updateStmt);
         }
     }
 
-    public void insertDebater(Debater debater) {
+    public void insertDebater(@NotNull Debater debater) {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
@@ -100,7 +105,7 @@ public class Database {
             updateStmt.setString(2, String.valueOf(debater.getId()));
             updateStmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.debug("Ошибка вставки дебатера", e);
         } finally {
             closeStatement(pstmt);
             closeStatement(updateStmt);
@@ -131,12 +136,12 @@ public class Database {
                 debaters.add(debater);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+           logger.debug("Ошибка чтения дебатеров", e);
         } finally {
             try {
                 if (stmt != null) stmt.close();
             } catch (SQLException e) {
-                e.printStackTrace();
+                logger.debug("Ошибка закрытия statement", e);
             }
         }
         return debaters;
@@ -150,7 +155,7 @@ public class Database {
             pstmt.setString(1, String.valueOf(id));
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.debug("Ошибка удаления дебатера", e);
         } finally {
             closeStatement(pstmt);
         }
@@ -161,7 +166,7 @@ public class Database {
         try {
             if (stmt != null) stmt.close();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.debug("Ошибка закрытия statement", e);
         }
     }
 
