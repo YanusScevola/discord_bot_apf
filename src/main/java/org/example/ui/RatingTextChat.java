@@ -24,10 +24,12 @@ import java.util.List;
 import java.util.Objects;
 
 
-public class RatingTextChat implements Chat {
+public class RatingTextChat implements TextChat {
+    static TextChannel channel;
+
     public enum DebaterProperty {DEBATE_COUNT, WINNER, BALLS}
+
     DebaterProperty debaterProperty = DebaterProperty.WINNER;
-    TextChannel RatingChannel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
     Button debatersBtn;
@@ -39,21 +41,20 @@ public class RatingTextChat implements Chat {
     public RatingTextChat(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
-        RatingChannel = apiRepository.getTextChannel(ChannelIds.RATING);
+        if (channel == null) channel = apiRepository.getTextChannel(ChannelIds.RATING);
 
         winnsBtn = Button.secondary(ButtonIds.TEAMS, "Победы");
         debatersBtn = Button.secondary(ButtonIds.DEBATERS, "Дебаты");
         ballsBtn = Button.secondary(ButtonIds.MUSIC, "Баллы");
 
-        allButtonsList = List.of(winnsBtn,debatersBtn, ballsBtn);
+        allButtonsList = List.of(winnsBtn, debatersBtn, ballsBtn);
 
-
-        RatingChannel.getHistoryFromBeginning(1).queue(history -> {
+        channel.getHistoryFromBeginning(1).queue(history -> {
             if (history.isEmpty()) {
                 List<Debater> debaterList = dbRepository.getAllDebaters();
                 List<Debater> sortedDebaterList = sortDebaters(debaterList, DebaterProperty.WINNER);
                 String nicknamesRow = getRowsDebaters(sortedDebaterList, DebaterProperty.WINNER);
-                RatingChannel.sendMessage(nicknamesRow)
+                channel.sendMessage(nicknamesRow)
                         .setActionRow(allButtonsList)
                         .queue();
             } else {
@@ -78,7 +79,7 @@ public class RatingTextChat implements Chat {
     public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
         if (event.getRoles().stream().anyMatch(role -> role.getId().equals(RoleIds.DEBATERS))) {
             dbRepository.insertDebater(DebaterMapper.mapFromMember(event.getMember()));
-            RatingChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
+            channel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
                     updateDebatersListView(debaters, debaterProperty)
             );
         }
@@ -88,7 +89,7 @@ public class RatingTextChat implements Chat {
     public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
         if (event.getRoles().stream().anyMatch(role -> role.getId().equals(RoleIds.DEBATERS))) {
             dbRepository.deleteDebater(DebaterMapper.mapFromMember(event.getMember()).getId());
-            RatingChannel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
+            channel.retrieveMessageById(MessageIds.INFORMATION).queue(debaters ->
                     updateDebatersListView(debaters, debaterProperty)
             );
         }
@@ -118,6 +119,7 @@ public class RatingTextChat implements Chat {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+
 
     private void onClickDebatersBtn(@NotNull ButtonInteractionEvent event) {
         event.deferEdit().queue();

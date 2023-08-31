@@ -1,4 +1,4 @@
-package org.example.ui;
+package org.example;
 
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
@@ -11,12 +11,16 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.constants.ChannelIds;
 import org.example.repository.ApiRepository;
 import org.example.repository.DbRepository;
+import org.example.ui.TextChat;
+import org.example.ui.RatingTextChat;
+import org.example.ui.TestTextChat;
 import org.jetbrains.annotations.NotNull;
 
 public class MyListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
-    RatingTextChat ratingTextChat;
+    TextChat ratingTextChat;
+    TextChat testTextChat;
 
 
     public void onReady(@NotNull ReadyEvent event) {
@@ -24,31 +28,39 @@ public class MyListenerAdapter extends ListenerAdapter {
         dbRepository = new DbRepository();
 
         ratingTextChat = new RatingTextChat(apiRepository, dbRepository);
+        testTextChat = new TestTextChat(apiRepository, dbRepository);
 
     }
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
         ratingTextChat.onGuildMemberJoin(event);
+        testTextChat.onGuildMemberJoin(event);
     }
 
     @Override
     public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
         ratingTextChat.onGuildMemberRoleAdd(event);
+        testTextChat.onGuildMemberRoleAdd(event);
     }
 
     @Override
     public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
         ratingTextChat.onGuildMemberRoleRemove(event);
+        testTextChat.onGuildMemberRoleRemove(event);
     }
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (event.getChannel().getType() == ChannelType.TEXT) {
             String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
+
             if (channelId.equals(ChannelIds.RATING)) {
                 ratingTextChat.onMessageReceived(event);
+            }else if (channelId.equals(ChannelIds.TEST)) {
+                testTextChat.onMessageReceived(event);
             }
+
         }
     }
 
@@ -58,9 +70,14 @@ public class MyListenerAdapter extends ListenerAdapter {
 
         if (channelId.equals(ChannelIds.RATING)) {
             ratingTextChat.onButtonInteraction(event);
+        }else if (channelId.equals(ChannelIds.TEST)) {
+            testTextChat.onButtonInteraction(event);
         }
 
     }
+
+
+
 
 
 }

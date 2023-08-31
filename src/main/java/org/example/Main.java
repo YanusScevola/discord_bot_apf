@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.example.source.Database;
-import org.example.ui.MyListenerAdapter;
 
 public class Main {
     public static void main(String[] args) {
