@@ -1,4 +1,4 @@
-package org.example.repository;
+package org.example;
 
 import net.dv8tion.jda.api.entities.Member;
 import org.example.models.Debater;

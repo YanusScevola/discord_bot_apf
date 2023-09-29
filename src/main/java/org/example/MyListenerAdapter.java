@@ -4,50 +4,45 @@ import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.constants.ChannelIds;
 import org.example.repository.ApiRepository;
 import org.example.repository.DbRepository;
-import org.example.ui.TextChat;
-import org.example.ui.RatingTextChat;
-import org.example.ui.TestTextChat;
+import org.example.channels.MenuTextChannel;
 import org.jetbrains.annotations.NotNull;
 
 public class MyListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
-    TextChat ratingTextChat;
-    TextChat testTextChat;
+    MenuTextChannel ratingTextChat;
 
 
     public void onReady(@NotNull ReadyEvent event) {
         apiRepository = new ApiRepository(event.getJDA());
         dbRepository = new DbRepository();
 
-        ratingTextChat = new RatingTextChat(apiRepository, dbRepository);
-        testTextChat = new TestTextChat(apiRepository, dbRepository);
+        ratingTextChat = new MenuTextChannel(apiRepository, dbRepository);
 
     }
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
         ratingTextChat.onGuildMemberJoin(event);
-        testTextChat.onGuildMemberJoin(event);
     }
 
     @Override
     public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
         ratingTextChat.onGuildMemberRoleAdd(event);
-        testTextChat.onGuildMemberRoleAdd(event);
     }
 
     @Override
     public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
         ratingTextChat.onGuildMemberRoleRemove(event);
-        testTextChat.onGuildMemberRoleRemove(event);
     }
 
     @Override
@@ -57,8 +52,6 @@ public class MyListenerAdapter extends ListenerAdapter {
 
             if (channelId.equals(ChannelIds.RATING)) {
                 ratingTextChat.onMessageReceived(event);
-            }else if (channelId.equals(ChannelIds.TEST)) {
-                testTextChat.onMessageReceived(event);
             }
 
         }
@@ -69,11 +62,18 @@ public class MyListenerAdapter extends ListenerAdapter {
         String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
 
         if (channelId.equals(ChannelIds.RATING)) {
-            ratingTextChat.onButtonInteraction(event);
-        }else if (channelId.equals(ChannelIds.TEST)) {
-            testTextChat.onButtonInteraction(event);
         }
 
+    }
+
+
+    @Override
+    public void onStringSelectInteraction(StringSelectInteractionEvent event) {
+        String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
+
+        if (channelId.equals(ChannelIds.RATING)) {
+            ratingTextChat.onStringSelectInteraction(event);
+        }
     }
 
 

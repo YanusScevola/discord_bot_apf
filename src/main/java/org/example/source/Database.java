@@ -18,9 +18,9 @@ public class Database {
     private Database() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            String username = "u5068_vEssE0KzVg";
-            String password = "EtBKaPUf5VtIAdco!a=OTOVk";
-            String url = "jdbc:mysql://u5068_vEssE0KzVg:EtBKaPUf5VtIAdco!a%3DOTOVk@172.105.158.16:3306/s5068_debate_club";
+            String username = "u5148_PYPEwTEr4b";
+            String password = "XQ!4IPY!TxlEwUIUeeKLy!Ul";
+            String url = "jdbc:mysql://u5148_PYPEwTEr4b:XQ!4IPY!TxlEwUIUeeKLy!Ul@172.105.158.16:3306/s5148_debate_club_db";
             this.connection = DriverManager.getConnection(url, username, password);
 
             createTable();
