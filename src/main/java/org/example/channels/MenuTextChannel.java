@@ -1,17 +1,16 @@
 package org.example.channels;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import org.example.constants.ChannelIds;
 import org.example.constants.RoleIds;
@@ -24,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import static org.example.channels.MenuTextChannel.SortTypes.*;
 
 
-public class MenuTextChannel implements  MessageEventListener, RoleEventListener, MemberEventListener, SelectorEventListener {
+public class MenuTextChannel implements  MessageEventListener, RoleEventListener,SelectorEventListener {
     static TextChannel channel;
 
     public enum SortTypes {DEBATE_COUNT, WINNER, BALLS}
@@ -34,7 +33,6 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
 
     SortTypes currentSortType = WINNER;
     InteractionHook currentInteractionHook;
-
 
     public static final String WINNER_SELECT_ID = "winner";
     public static final String DEBATE_COUNT_SELECT_ID = "debate_count";
@@ -53,19 +51,13 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
                         .setActionRow(StringSelectMenu.create("statistic")
                                 .addOption("По количеству побед", WINNER_SELECT_ID, "", Emoji.fromUnicode("\uD83E\uDD47"))
                                 .addOption("По количеству дебатов", DEBATE_COUNT_SELECT_ID, Emoji.fromUnicode("\uD83D\uDDE3️"))
-                                .addOption("По количеству баллов", BALLS_SELECT_ID, Emoji.fromUnicode("\uD83D\uDC8E"))
+                                .addOption("По количеству баллов", BALLS_SELECT_ID, Emoji.fromUnicode("\uD83D\uDCAF"))
                                 .build()).queue();
             }
         });
 
         updateDebatersDB();
 
-
-    }
-
-
-    @Override
-    public void onGuildMemberJoin(GuildMemberJoinEvent event) {
 
     }
 
@@ -106,12 +98,23 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
         }
     }
 
-
     private void openDebatersListView(SortTypes property, InteractionHook interactionHook) {
         List<Debater> debaterUpdatedList = dbRepository.getAllDebaters();
         List<Debater> sortedDebaterList = sortDebaters(debaterUpdatedList, property);
-        String nicknamesRow = getTextListDebaters(sortedDebaterList, property);
-        interactionHook.sendMessage(nicknamesRow).queue();
+        String nicknamesRow = getListDebatersText(sortedDebaterList, property);
+
+        String title = switch (property) {
+            case WINNER -> "количеству побед";
+            case DEBATE_COUNT -> "количеству сыгранных дебатов";
+            case BALLS -> "количеству баллов";
+        };
+
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle("Рейтинг по " + title, null);
+        eb.setColor(new Color(0x2F51B9));
+        eb.setDescription(nicknamesRow);
+
+        interactionHook.sendMessage("").setEmbeds(eb.build()).queue();
     }
 
 
@@ -132,17 +135,8 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
         return debaters;
     }
 
-
-    public String getTextListDebaters(List<Debater> filteredMembers, SortTypes property) {
+    public String getListDebatersText(List<Debater> filteredMembers, SortTypes property) {
         StringBuilder clickableNicknames = new StringBuilder();
-        String title = "";
-
-        title = switch (property) {
-            case WINNER -> "количеству побед";
-            case DEBATE_COUNT -> "количеству сыгранных дебатов";
-            case BALLS -> "количеству баллов";
-        };
-        clickableNicknames.append("## Рейтинг по ").append(title).append(": \n");
 
         int lineNumber = 1;
         for (Debater debater : filteredMembers) {
@@ -152,8 +146,16 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
                     case DEBATE_COUNT -> debater.getDebateCount();
                     case BALLS -> debater.getBalls();
                 };
+
+                String medal = switch (lineNumber) {
+                    case 1 -> "\uD83E\uDD47";
+                    case 2 -> "\uD83E\uDD48";
+                    case 3 -> "\uD83E\uDD49";
+                    default -> "";
+                };
+
                 clickableNicknames.append(lineNumber).append(". ");
-                clickableNicknames.append("<@").append(debater.getId()).append("> - **");
+                clickableNicknames.append(medal).append("<@").append(debater.getId()).append(">|  **");
                 clickableNicknames.append(value).append("**");
                 clickableNicknames.append("\n");
                 lineNumber++;
@@ -164,40 +166,6 @@ public class MenuTextChannel implements  MessageEventListener, RoleEventListener
         limitedString = limitedString.substring(0, Math.min(limitedString.length(), 2000));
 
         return limitedString;
-    }
-
-    public List<Button> updateButtons(List<Button> originalButtons, Button currentBtn) {
-        List<Button> modifiedButtons = new ArrayList<>();
-        for (Button button : originalButtons) {
-            if (Objects.equals(button.getId(), currentBtn.getId())) {
-                modifiedButtons.add(button.asDisabled());
-            } else {
-                modifiedButtons.add(button);
-            }
-        }
-        return modifiedButtons;
-    }
-
-
-    public List<ActionRow> createActionRowList(List<Button> buttons) {
-        List<ActionRow> rows = new ArrayList<>();
-        List<Button> tempRow = new ArrayList<>();
-
-        for (Button button : buttons) {
-            if (tempRow.size() < 4) {
-                tempRow.add(button);
-            } else {
-                rows.add(ActionRow.of(tempRow));
-                tempRow.clear();
-                tempRow.add(button);
-            }
-        }
-
-        if (!tempRow.isEmpty()) {
-            rows.add(ActionRow.of(tempRow));
-        }
-
-        return rows;
     }
 
     private void updateDebatersDB() {
