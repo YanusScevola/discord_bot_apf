@@ -1,4 +1,4 @@
-package org.example.ui.text;
+package org.example.ui.channels;
 
 import java.awt.*;
 import java.util.*;

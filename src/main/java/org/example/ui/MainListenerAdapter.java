@@ -13,8 +13,8 @@ import org.example.ui.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.ui.constants.VoceChannelsID;
-import org.example.ui.text.RatingTextChannel;
-import org.example.ui.text.SubscribeTextChannel;
+import org.example.ui.channels.RatingTextChannel;
+import org.example.ui.channels.SubscribeTextChannel;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
