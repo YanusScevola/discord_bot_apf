@@ -1,14 +1,11 @@
-package org.example.repository;
+package org.example.data.repository;
 
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import org.example.constants.RoleIds;
-import org.example.models.Debater;
-import org.example.source.ApiService;
-import org.example.source.Database;
+import org.example.ui.models.Debate;
+import org.example.ui.models.Debater;
+import org.example.data.source.Database;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
 public class DbRepository {
@@ -21,7 +18,11 @@ public class DbRepository {
 
 
     public List<Debater> getAllDebaters() {
-        return dataBase.readAllDebaters();
+        return dataBase.getAllDebaters();
+    }
+
+    public List<Debate> getAllDebates() {
+        return new ArrayList<>();
     }
 
     public void insertDebater(Debater debater) {
@@ -41,5 +42,7 @@ public class DbRepository {
             dataBase.deleteDebater(id);
         });
     }
+
+
 
 }

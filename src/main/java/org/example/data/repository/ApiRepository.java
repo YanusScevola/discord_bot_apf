@@ -1,10 +1,10 @@
-package org.example.repository;
+package org.example.data.repository;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import org.example.source.ApiService;
+import org.example.data.source.ApiService;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

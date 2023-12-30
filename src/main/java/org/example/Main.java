@@ -5,20 +5,20 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.example.source.Database;
+import org.example.ui.MainListenerAdapter;
 
 public class Main {
     public static void main(String[] args) {
         JDA jda;
-        String token = "MTE0NTA1OTk3MDQ3NjQyMTI0MA.GCoRjD.7EwItC8N_KZ52byF7b1mNTZDRQfricZRpsUyuo";
+        String token = "MTE5MDM5NDQ1NDg0NzI3OTE4NA.GZfcTy.2cuQfYZNIcTs457wAnGBN6cI6x1IiwUPP30IJ0";
 
         try {
-            Database.getInstance();
+//            Database.getInstance();
 
             jda = JDABuilder.createDefault(token)
                     .setActivity(Activity.playing("!help"))
                     .setStatus(OnlineStatus.ONLINE)
-                    .addEventListeners(new MyListenerAdapter())
+                    .addEventListeners(new MainListenerAdapter())
                     .enableIntents(GatewayIntent.GUILD_MEMBERS)
                     .enableIntents(GatewayIntent.GUILD_MESSAGES)
                     .enableIntents(GatewayIntent.DIRECT_MESSAGES)

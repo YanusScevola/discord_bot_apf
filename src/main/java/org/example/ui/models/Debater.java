@@ -1,4 +1,4 @@
-package org.example.models;
+package org.example.ui.models;
 
 public class Debater {
         private String id;

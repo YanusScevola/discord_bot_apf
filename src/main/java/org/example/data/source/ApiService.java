@@ -1,4 +1,4 @@
-package org.example.source;
+package org.example.data.source;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import org.example.constants.ServerIds;
 
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +16,8 @@ import java.util.stream.Collectors;
 public class ApiService {
     private static JDA jda;
     private static Guild server;
+    public static final String CLUB_DEBATES = "1134905651827585108";
+
 
     private ApiService() {
     }
@@ -27,7 +28,8 @@ public class ApiService {
 
     public static ApiService getInstance(JDA jda2) {
         jda = jda2;
-        server = jda.getGuildById(ServerIds.CLUB_DEBATES);
+
+        server = jda.getGuildById(CLUB_DEBATES);
         return SingletonHolder.INSTANCE;
     }
 
