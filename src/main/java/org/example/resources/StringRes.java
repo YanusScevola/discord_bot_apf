@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class StringRes {
+
     public enum Language {
         ENGLISH, RUSSIAN
     }
@@ -11,7 +12,8 @@ public class StringRes {
     public enum Key {
         DEBATER_ADDED, NEED_DEBATER_ROLE, NEED_WAITING_ROOM, DEBATE_SUBSCRIBE_TITLE, NO_MEMBERS, DEBATER_LIST_TITLE,
         JUDGES_LIST_TITLE, BUTTON_SUBSCRIBE_DEBATER, BUTTON_SUBSCRIBE_JUDGE, BUTTON_UNSUBSCRIBE, DEBATER_REMOVED,
-        JUDGE_REMOVED, DEBATER_NOT_SUBSCRIBED, JUDGE_NOT_SUBSCRIBED, JUDGE_ADDED, NEED_JUDGE_ROLE
+        JUDGE_REMOVED, DEBATER_NOT_SUBSCRIBED, JUDGE_NOT_SUBSCRIBED, JUDGE_ADDED, NEED_JUDGE_ROLE, TIMER_TITLE,
+        DEBATE_STARTED,
     }
 
     private static StringRes instance;
@@ -53,6 +55,8 @@ public class StringRes {
         addString(Key.JUDGE_NOT_SUBSCRIBED, Language.RUSSIAN, "Вы не записаны на дебаты.");
         addString(Key.JUDGE_ADDED, Language.RUSSIAN, "Вы были добавлены в список судей.");
         addString(Key.NEED_JUDGE_ROLE, Language.RUSSIAN, "Нужно получить роль \"Судья\".");
+        addString(Key.TIMER_TITLE, Language.RUSSIAN, "Дебаты начнутся через:");
+        addString(Key.DEBATE_STARTED, Language.RUSSIAN, "Дебаты начались! \nПерейдите в голосовой канал \"Трибуна\".");
 
 
 

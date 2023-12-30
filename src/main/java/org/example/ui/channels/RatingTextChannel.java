@@ -15,7 +15,7 @@ import org.example.utils.DebaterMapper;
 
 
 
-public class RatingTextChannel  {
+public class RatingTextChannel {
     static TextChannel channel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
@@ -79,7 +79,7 @@ public class RatingTextChannel  {
     }
 
     private void updateDebatersDB() {
-        apiRepository.getMembersByRole(RoleIsID.DEBATER).thenAccept(members -> {
+        apiRepository.getMembersByRole(RoleIsID.DEBATER_APF).thenAccept(members -> {
             List<Debater> debaterList = new ArrayList<>(DebaterMapper.mapFromMembers(members));
             dbRepository.insertDebaters(debaterList);
         });

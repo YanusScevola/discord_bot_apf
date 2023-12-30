@@ -3,6 +3,7 @@ package org.example.data.repository;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.example.data.source.ApiService;
 
@@ -27,5 +28,13 @@ public class ApiRepository {
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
         return apiService.getMessageByIndex(channel,index);
+    }
+
+    public CompletableFuture<Category> getCategoryByID(String id) {
+        return apiService.getCategoryByID(id);
+    }
+
+    public CompletableFuture<Void> assignRoleToUser(String userId, String roleId) {
+        return apiService.assignRoleToUser(userId, roleId);
     }
 }

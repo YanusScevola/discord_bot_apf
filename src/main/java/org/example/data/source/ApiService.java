@@ -5,7 +5,9 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import org.example.ui.constants.ServerID;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,7 +18,6 @@ import java.util.stream.Collectors;
 public class ApiService {
     private static JDA jda;
     private static Guild server;
-    public static final String CLUB_DEBATES = "1134905651827585108";
 
 
     private ApiService() {
@@ -29,7 +30,7 @@ public class ApiService {
     public static ApiService getInstance(JDA jda2) {
         jda = jda2;
 
-        server = jda.getGuildById(CLUB_DEBATES);
+        server = jda.getGuildById(ServerID.SERVER_ID);
         return SingletonHolder.INSTANCE;
     }
 
@@ -93,6 +94,47 @@ public class ApiService {
 
         return future;
     }
+
+
+    public CompletableFuture<Category> getCategoryByID(String id) {
+        CompletableFuture<Category> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return future;
+        }
+        Category category = server.getCategoryById(id);
+        if (category == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такой категории"));
+            return future;
+        }
+        future.complete(category);
+        return future;
+    }
+
+    public CompletableFuture<Void> assignRoleToUser(String userId, String roleId) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return future;
+        }
+
+        Role role = server.getRoleById(roleId);
+        if (role == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такой роли: " + roleId));
+            return future;
+        }
+
+        server.retrieveMemberById(userId).queue(member -> {
+            server.addRoleToMember(member, role).queue(
+                    error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при присвоении роли: " + error)) // Ошибка при присвоении роли
+            );
+        }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
+
+        return future;
+    }
+
+
+
 
 
 }

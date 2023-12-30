@@ -17,8 +17,6 @@ import org.example.ui.channels.RatingTextChannel;
 import org.example.ui.channels.SubscribeTextChannel;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
-
 public class MainListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
@@ -34,20 +32,9 @@ public class MainListenerAdapter extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
-    }
-
-    @Override
-    public void onGuildMemberRoleAdd(@NotNull GuildMemberRoleAddEvent event) {
-    }
-
-    @Override
-    public void onGuildMemberRoleRemove(@NotNull GuildMemberRoleRemoveEvent event) {
-    }
-
-    @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
-        String channelId = String.valueOf(Objects.requireNonNull(event.getChannelLeft()).getIdLong());
+        if(event.getChannelLeft() == null) return;
+        String channelId = String.valueOf(event.getChannelLeft().getIdLong());
         if (channelId.equals(VoceChannelsID.WAITING_ROOM)) {
             subscribeTextChat.onGuildVoiceUpdate(event);
         }
