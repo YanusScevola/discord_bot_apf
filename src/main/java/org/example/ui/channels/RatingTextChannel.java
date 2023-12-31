@@ -7,7 +7,7 @@ import java.util.List;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.example.ui.constants.TextChannelsID;
-import org.example.ui.constants.RoleIsID;
+import org.example.ui.constants.RolesID;
 import org.example.ui.models.Debater;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
@@ -79,7 +79,7 @@ public class RatingTextChannel {
     }
 
     private void updateDebatersDB() {
-        apiRepository.getMembersByRole(RoleIsID.DEBATER_APF).thenAccept(members -> {
+        apiRepository.getMembersByRole(RolesID.DEBATER_APF).thenAccept(members -> {
             List<Debater> debaterList = new ArrayList<>(DebaterMapper.mapFromMembers(members));
             dbRepository.insertDebaters(debaterList);
         });

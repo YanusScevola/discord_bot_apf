@@ -13,7 +13,7 @@ public class StringRes {
         DEBATER_ADDED, NEED_DEBATER_ROLE, NEED_WAITING_ROOM, DEBATE_SUBSCRIBE_TITLE, NO_MEMBERS, DEBATER_LIST_TITLE,
         JUDGES_LIST_TITLE, BUTTON_SUBSCRIBE_DEBATER, BUTTON_SUBSCRIBE_JUDGE, BUTTON_UNSUBSCRIBE, DEBATER_REMOVED,
         JUDGE_REMOVED, DEBATER_NOT_SUBSCRIBED, JUDGE_NOT_SUBSCRIBED, JUDGE_ADDED, NEED_JUDGE_ROLE, TIMER_TITLE,
-        DEBATE_STARTED,
+    DEBATE_STARTED, TRIBUNE_CHANNEL_NAME, JUDGE_CHANNEL_NAME, GOVERNMENT_CHANNEL_NAME, OPPOSITION_CHANNEL_NAME
     }
 
     private static StringRes instance;
@@ -37,15 +37,9 @@ public class StringRes {
         addString(Key.NO_MEMBERS, Language.RUSSIAN, "Нет участников");
         addString(Key.DEBATER_LIST_TITLE, Language.RUSSIAN, "Дебатеры:");
         addString(Key.JUDGES_LIST_TITLE, Language.RUSSIAN, "Судьи:");
-
-        addString(Key.DEBATER_ADDED, Language.ENGLISH, "You have been added to the debaters list.");
         addString(Key.DEBATER_ADDED, Language.RUSSIAN, "Вы были добавлены в список дебатеров.");
-
-        addString(Key.NEED_DEBATER_ROLE, Language.ENGLISH, "You need to acquire the \"Debater\" role.");
         addString(Key.NEED_DEBATER_ROLE, Language.RUSSIAN, "Нужно получить роль \"Дебатер\".");
-
         addString(Key.NEED_WAITING_ROOM, Language.RUSSIAN, "Вы должны находиться в голосовом канале \"Зал ожидания\".");
-
         addString(Key.BUTTON_SUBSCRIBE_DEBATER, Language.RUSSIAN, "Записаться как дебатер");
         addString(Key.BUTTON_SUBSCRIBE_JUDGE, Language.RUSSIAN, "Записаться как судья");
         addString(Key.BUTTON_UNSUBSCRIBE, Language.RUSSIAN, "Отписаться");
@@ -57,8 +51,10 @@ public class StringRes {
         addString(Key.NEED_JUDGE_ROLE, Language.RUSSIAN, "Нужно получить роль \"Судья\".");
         addString(Key.TIMER_TITLE, Language.RUSSIAN, "Дебаты начнутся через:");
         addString(Key.DEBATE_STARTED, Language.RUSSIAN, "Дебаты начались! \nПерейдите в голосовой канал \"Трибуна\".");
-
-
+        addString(Key.TRIBUNE_CHANNEL_NAME, Language.RUSSIAN, "Трибуна");
+        addString(Key.JUDGE_CHANNEL_NAME, Language.RUSSIAN, "Судейская");
+        addString(Key.GOVERNMENT_CHANNEL_NAME, Language.RUSSIAN, "Правительство");
+        addString(Key.OPPOSITION_CHANNEL_NAME, Language.RUSSIAN, "Оппозиция");
 
     }
 

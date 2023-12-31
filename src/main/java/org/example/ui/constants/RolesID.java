@@ -1,6 +1,6 @@
 package org.example.ui.constants;
 
-public class RoleIsID {
+public class RolesID {
     public static final String DEBATER_APF = "1190398158602240071";
     public static final String JUDGE_APF = "1190433034550382612";
     public static final String JUDGE = "1190715412866945155";
