@@ -6,6 +6,7 @@ import org.example.data.repository.ApiRepository;
 import org.example.ui.constants.TextChannelsID;
 
 import java.awt.*;
+import java.util.Timer;
 
 public class Utils {
 
@@ -36,6 +37,22 @@ public class Utils {
             System.out.println("Текстовый канал не найден: " + TextChannelsID.LOG);
         }
     }
+
+    public static void startTimer(int seconds, TimerCallBack callBack) {
+        Timer timer = new Timer();
+        timer.schedule(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                callBack.onTimer();
+            }
+        }, seconds * 1000L);
+    }
+
+    public interface TimerCallBack {
+        void onTimer();
+    }
+
+
 
 
 }

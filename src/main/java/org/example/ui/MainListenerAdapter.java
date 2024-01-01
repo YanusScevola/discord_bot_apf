@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.resources.StringRes;
-import org.example.ui.channels.TribuneVoiceChannel;
 import org.example.ui.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
@@ -15,8 +14,6 @@ import org.example.ui.constants.VoiceChannelsID;
 import org.example.ui.channels.RatingTextChannel;
 import org.example.ui.channels.SubscribeTextChannel;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Objects;
 
 public class MainListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
@@ -44,10 +41,15 @@ public class MainListenerAdapter extends ListenerAdapter {
         }
 
         if (event.getChannelJoined() != null) {
-            String channelName = event.getChannelJoined().getName();
+            String joinedChannelName = event.getChannelJoined().getName();
+            String leftChannelName = event.getChannelLeft().getName();
 
-            if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-                subscribeTextChat.tribuneVoiceChannel.onGuildVoiceUpdate(event);
+            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+                subscribeTextChat.debateController.onJoinToVoiceChannel(event);
+            }
+
+            if (leftChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+                subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
             }
         }
     }
@@ -72,7 +74,7 @@ public class MainListenerAdapter extends ListenerAdapter {
         if (channelId.equals(TextChannelsID.SUBSCRIBE)) {
             subscribeTextChat.onButtonInteraction(event);
         } else if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-            subscribeTextChat.tribuneVoiceChannel.onButtonInteraction(event);
+            subscribeTextChat.debateController.onButtonInteraction(event);
         }
 
 

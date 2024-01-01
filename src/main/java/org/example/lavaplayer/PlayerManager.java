@@ -40,18 +40,23 @@ public class PlayerManager {
         });
     }
 
-    public void play(Guild guild, String trackURL) {
+
+    public void play(Guild guild, String trackURL, TrackScheduler.TrackEndCallback callback) {
         GuildMusicManager guildMusicManager = getGuildMusicManager(guild);
+
         audioPlayerManager.loadItemOrdered(guildMusicManager, trackURL, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
+                guildMusicManager.getTrackScheduler().setEndCallback(track, callback);
                 guildMusicManager.getTrackScheduler().queue(track);
                 System.out.println("trackLoaded");
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                guildMusicManager.getTrackScheduler().queue(playlist.getTracks().get(0));
+                AudioTrack firstTrack = playlist.getTracks().get(0);
+                guildMusicManager.getTrackScheduler().setEndCallback(firstTrack, callback);
+                guildMusicManager.getTrackScheduler().queue(firstTrack);
                 System.out.println("playlistLoaded");
             }
 
