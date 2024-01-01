@@ -33,7 +33,9 @@ public class StringRes {
     }
 
     private void initializeStrings() {
-        addString(Key.DEBATE_SUBSCRIBE_TITLE, Language.RUSSIAN, "Запись на дебаты АПФ");
+        addString(Key.DEBATE_SUBSCRIBE_TITLE, Language.RUSSIAN, "Запись на дебаты АПФ:");
+        addString(Key.TIMER_TITLE, Language.RUSSIAN, "Дебаты начнутся через:");
+        addString(Key.DEBATE_STARTED, Language.RUSSIAN, "Дебаты начались! \nПерейдите в голосовой канал \"Трибуна\".");
         addString(Key.NO_MEMBERS, Language.RUSSIAN, "Нет участников");
         addString(Key.DEBATER_LIST_TITLE, Language.RUSSIAN, "Дебатеры:");
         addString(Key.JUDGES_LIST_TITLE, Language.RUSSIAN, "Судьи:");
@@ -49,8 +51,6 @@ public class StringRes {
         addString(Key.JUDGE_NOT_SUBSCRIBED, Language.RUSSIAN, "Вы не записаны на дебаты.");
         addString(Key.JUDGE_ADDED, Language.RUSSIAN, "Вы были добавлены в список судей.");
         addString(Key.NEED_JUDGE_ROLE, Language.RUSSIAN, "Нужно получить роль \"Судья\".");
-        addString(Key.TIMER_TITLE, Language.RUSSIAN, "Дебаты начнутся через:");
-        addString(Key.DEBATE_STARTED, Language.RUSSIAN, "Дебаты начались! \nПерейдите в голосовой канал \"Трибуна\".");
         addString(Key.TRIBUNE_CHANNEL_NAME, Language.RUSSIAN, "Трибуна");
         addString(Key.JUDGE_CHANNEL_NAME, Language.RUSSIAN, "Судейская");
         addString(Key.GOVERNMENT_CHANNEL_NAME, Language.RUSSIAN, "Правительство");

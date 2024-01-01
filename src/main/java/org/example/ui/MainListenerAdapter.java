@@ -34,23 +34,24 @@ public class MainListenerAdapter extends ListenerAdapter {
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
         if (event.getChannelLeft() != null) {
             String channelId = String.valueOf(event.getChannelLeft().getIdLong());
-
-            if (channelId.equals(VoiceChannelsID.WAITING_ROOM)) {
-                subscribeTextChat.onGuildVoiceUpdate(event);
-            }
-        }
-
-        if (event.getChannelJoined() != null) {
-            String joinedChannelName = event.getChannelJoined().getName();
             String leftChannelName = event.getChannelLeft().getName();
 
-            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-                subscribeTextChat.debateController.onJoinToVoiceChannel(event);
+            if (channelId.equals(VoiceChannelsID.WAITING_ROOM)) {
+                subscribeTextChat.onLeaveFromVoiceChannel(event);
             }
 
             if (leftChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
                 subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
             }
+        }
+
+        if (event.getChannelJoined() != null) {
+            String joinedChannelName = event.getChannelJoined().getName();
+
+            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+                subscribeTextChat.debateController.onJoinToVoiceChannel(event);
+            }
+
         }
     }
 

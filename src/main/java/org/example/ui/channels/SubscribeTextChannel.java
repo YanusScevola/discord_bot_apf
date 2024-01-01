@@ -40,12 +40,13 @@ public class SubscribeTextChannel {
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
-    private static final int DEBATERS_LIMIT = 1;
-    private static final int JUDGES_LIMIT = 1;
-    private static final int START_DEBATE_TIMER = 2;
-    private static final int HELP_MESSAGE_TIME = 5;
+    private static final int DEBATERS_LIMIT = 1; //4
+    private static final int JUDGES_LIMIT = 1; //1
+    private static final int START_DEBATE_TIMER = 2; //60
+    private static final int HELP_MESSAGE_TIME = 5; //5
 
-    private long timerEnd = 0;
+    private long timerForStartDebate = 0;
+    private boolean isDebateStarted = false;
     public DebateController debateController;
 
 
@@ -79,12 +80,19 @@ public class SubscribeTextChannel {
         }
     }
 
-    public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
-        if (Objects.requireNonNull(event.getChannelLeft()).getId().equals(VoiceChannelsID.WAITING_ROOM)) {
-            if (event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.DEBATER_APF) && timerEnd != 0)) {
-                removeDebaterFromList(event.getMember().getUser());
+    public void onLeaveFromVoiceChannel(@NotNull GuildVoiceUpdateEvent event) {
+        boolean isDebaterSubscriber = debatersList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        boolean isJudgeSubscriber = judgesList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        if (timerForStartDebate == 0) {
+            if (!isDebateStarted) {
+                if (isDebaterSubscriber) removeDebaterFromList(event.getMember().getUser());
+                if (isJudgeSubscriber && !isDebateStarted) removeJudgeFromList(event.getMember().getUser());
             }
+        } else {
+            if (isDebaterSubscriber) removeDebaterFromList(event.getMember().getUser());
+            if (isJudgeSubscriber && !isDebateStarted) removeJudgeFromList(event.getMember().getUser());
         }
+
     }
 
     private void showSubscribeMessage() {
@@ -106,12 +114,12 @@ public class SubscribeTextChannel {
             if (event.getMember().getVoiceState() != null && event.getMember().getVoiceState().inAudioChannel() && Objects.equals(Objects.requireNonNull(event.getMember().getVoiceState().getChannel()).getId(), VoiceChannelsID.WAITING_ROOM)) {
                 if (event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.DEBATER_APF))) {
                     addDebaterToDb(user);
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_ADDED));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_ADDED));
                 } else {
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_DEBATER_ROLE));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_DEBATER_ROLE));
                 }
             } else {
-                showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
+                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
             }
         }
     }
@@ -121,12 +129,12 @@ public class SubscribeTextChannel {
             if (event.getMember().getVoiceState() != null && event.getMember().getVoiceState().inAudioChannel() && Objects.equals(Objects.requireNonNull(event.getMember().getVoiceState().getChannel()).getId(), VoiceChannelsID.WAITING_ROOM)) {
                 if (event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.JUDGE_APF))) {
                     addJudgeToDb(user);
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
                 } else {
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_JUDGE_ROLE));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_JUDGE_ROLE));
                 }
             } else {
-                showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
+                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
             }
         }
     }
@@ -140,17 +148,17 @@ public class SubscribeTextChannel {
             if (!history.isEmpty()) {
                 if (debatersList != null && debatersList.contains(user.getAsMention())) {
                     removeDebaterFromList(user);
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_REMOVED));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_REMOVED));
                 } else if (judgeList != null && judgeList.contains(user.getAsMention())) {
                     removeJudgeFromList(user);
-                    showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_REMOVED));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_REMOVED));
                 }
             }
             if (debatersList != null && debatersList.contains(user.getAsMention())) {
                 removeDebaterFromList(user);
-                showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_REMOVED));
+                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_REMOVED));
             } else {
-                showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_NOT_SUBSCRIBED));
+                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_NOT_SUBSCRIBED));
             }
         });
     }
@@ -171,9 +179,9 @@ public class SubscribeTextChannel {
                 String judgeListString = judges.isEmpty() ? stringsRes.get(StringRes.Key.NO_MEMBERS) : String.join("\n", judges);
                 embedBuilder.addField(stringsRes.get(StringRes.Key.JUDGES_LIST_TITLE), judgeListString, true);
 
-                if (debaters.size() >= DEBATERS_LIMIT && judges.size() >= JUDGES_LIMIT && timerEnd == 0) {
-                    timerEnd = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
-                    String timerMessage = "<t:" + timerEnd + ":R>";
+                if (debaters.size() >= DEBATERS_LIMIT && judges.size() >= JUDGES_LIMIT && timerForStartDebate == 0) {
+                    timerForStartDebate = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
+                    String timerMessage = "<t:" + timerForStartDebate + ":R>";
                     embedBuilder.addField(stringsRes.get(StringRes.Key.TIMER_TITLE), timerMessage, false);
                     scheduleTimerEndUpdate(message.getIdLong());
                 }
@@ -190,14 +198,14 @@ public class SubscribeTextChannel {
     private void scheduleTimerEndUpdate(long messageId) {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> channel.retrieveMessageById(messageId).queue(message -> {
-            if (System.currentTimeMillis() / 1000L >= timerEnd && timerEnd != 0) {
+            if (System.currentTimeMillis() / 1000L >= timerForStartDebate && timerForStartDebate != 0) {
                 EmbedBuilder embedBuilder = new EmbedBuilder(message.getEmbeds().get(0));
 
                 embedBuilder.getFields().stream().filter(field -> Objects.equals(field.getName(), stringsRes.get(StringRes.Key.TIMER_TITLE))).findFirst().ifPresent(field -> embedBuilder.addField(Objects.requireNonNull(field.getName()), stringsRes.get(StringRes.Key.DEBATE_STARTED), false));
                 if (embedBuilder.getFields().size() > 2) {
                     embedBuilder.getFields().remove(2);
                 } else {
-                    Utils.sendLogError(apiRepository, "scheduleTimerEndUpdate", "Недостаточно полей для удаления.");
+//                    Utils.sendLogError(apiRepository, "scheduleTimerEndUpdate", "Недостаточно полей для удаления.");
                 }
 
                 Button debaterButton = Button.success(DEBATER_SUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_SUBSCRIBE_DEBATER)).asDisabled();
@@ -205,8 +213,8 @@ public class SubscribeTextChannel {
                 Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_UNSUBSCRIBE)).asDisabled();
 
                 channel.editMessageEmbedsById(message.getId(), embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
-                timerEnd = 0;
-
+                timerForStartDebate = 0;
+                isDebateStarted = true;
                 debateController = new DebateController(apiRepository, dbRepository);
                 createVoiceChannels();
                 assignRoleToUser(debatersList, judgesList);
@@ -246,7 +254,7 @@ public class SubscribeTextChannel {
                 });
             }
         } else {
-            Utils.sendLogError(apiRepository, "createVoiceChannels", "Категория не найдена. Проверьте ID.");
+//            Utils.sendLogError(apiRepository, "createVoiceChannels", "Категория не найдена. Проверьте ID.");
         }
     }
 
@@ -267,9 +275,7 @@ public class SubscribeTextChannel {
             }
         }
 
-        for (User user : judgesList) {
-            apiRepository.assignRoleToUser(user.getId(), RolesID.JUDGE);
-        }
+        for (User user : judgesList) apiRepository.assignRoleToUser(user.getId(), RolesID.JUDGE);
     }
 
     private void moveBotToVoiceChannel(VoiceChannel channel) {
@@ -278,12 +284,12 @@ public class SubscribeTextChannel {
             AudioManager audioManager = guild.getAudioManager();
             if (!audioManager.isConnected() && !audioManager.isConnected()) {
                 audioManager.openAudioConnection(channel);
-                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " + channel.getName());
+//                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " + channel.getName());
             } else {
-                Utils.sendLogError(apiRepository, "joinVoiceChannel", "Бот уже находится в голосовом канале или пытается подключиться.");
+//                Utils.sendLogError(apiRepository, "joinVoiceChannel", "Бот уже находится в голосовом канале или пытается подключиться.");
             }
         } else {
-            Utils.sendLogError(apiRepository, "joinVoiceChannel", "Голосовой канал не найден.");
+//            Utils.sendLogError(apiRepository, "joinVoiceChannel", "Голосовой канал не найден.");
         }
     }
 
@@ -309,12 +315,6 @@ public class SubscribeTextChannel {
         update();
     }
 
-    private void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
-        if (!event.isAcknowledged()) {
-            event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(HELP_MESSAGE_TIME, TimeUnit.SECONDS)));
-        } else {
-            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
-        }
-    }
+//
 
 }

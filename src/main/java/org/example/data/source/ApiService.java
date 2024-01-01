@@ -1,5 +1,6 @@
 package org.example.data.source;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -8,13 +9,20 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
-import net.dv8tion.jda.api.managers.AudioManager;
-import org.example.ui.constants.ServerID;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 
+import org.example.ui.constants.ServerID;
+import org.jetbrains.annotations.NotNull;
+
+import java.awt.Color;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class ApiService {
@@ -72,8 +80,8 @@ public class ApiService {
                         internalFuture.complete(filteredMembers);
                     })
                     .onError(e ->
-                            internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
-                    );
+                                    internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
+                            );
             try {
                 return internalFuture.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -129,15 +137,50 @@ public class ApiService {
         server.retrieveMemberById(userId).queue(member -> {
             server.addRoleToMember(member, role).queue(
                     error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при присвоении роли: " + error)) // Ошибка при присвоении роли
-            );
+                                                      );
         }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
 
         return future;
     }
 
+    public CompletableFuture<Void> moveMembersAsync(Set<Member> members, VoiceChannel targetChannel) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        AtomicInteger counter = new AtomicInteger(members.size());
 
+        if (members.isEmpty()) {
+            future.complete(null);
+            return future;
+        }
 
+        for (Member member : members) {
+            if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
+                if (Objects.equals(member.getVoiceState().getChannel(), targetChannel)) {
+                    if (counter.decrementAndGet() == 0) {
+                        future.complete(null);
+                    }
+                } else {
+                    member.getGuild().moveVoiceMember(member, targetChannel).queue(success -> {
+                        if (counter.decrementAndGet() == 0) {
+                            future.complete(null);
+                        }
+                    }, future::completeExceptionally);
+                }
+            } else {
+                if (counter.decrementAndGet() == 0) future.complete(null);
 
+            }
+        }
+
+        return future;
+    }
+
+    public void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
+        if (!event.isAcknowledged()) {
+            event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(5, TimeUnit.SECONDS)));
+        } else {
+//            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
+        }
+    }
 
 
 
