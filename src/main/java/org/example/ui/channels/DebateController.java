@@ -34,10 +34,9 @@ public class DebateController {
     private static final int DEBATERS_PREPARATION_TIME = 5;
     private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 5;
     private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 5;
-    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 5;
-    private static final int OPPONENT_ASK_MEMBER_GOVERNMENT = 5;
-    private static final int OPPONENT_ASK_MEMBER_OPPOSITION = 5;
-    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 5;
+    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 10;
+    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 10;
+    private static final int OPPONENT_ASK_TIME = 15;
     private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 5;
     private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5;
     private static final int JUDGES_PREPARATION_TIME = 5;
@@ -71,6 +70,12 @@ public class DebateController {
 
     private Stage currentStage = Stage.START_DEBATE;
 
+    private Stage savedPausedStage;
+    private long savedPausedTime;
+    private String savedPausedTitle;
+    private String savedPausedAudioPath;
+    List<Button> savedPausedButtons;
+
 
     public DebateController(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
@@ -93,25 +98,6 @@ public class DebateController {
             onEndSpeechButton(event);
         } else if (Objects.equals(event.getButton().getId(), BTN_ASK_QUESTION_ID)) {
             onAskQuestionButton(event);
-        }
-    }
-
-    private void onEndDebateButton(ButtonInteractionEvent event) {
-
-    }
-
-    private void onEndSpeechButton(ButtonInteractionEvent event) {
-
-    }
-
-    private void onAskQuestionButton(ButtonInteractionEvent event) {
-        if (allDebaters.contains(event.getMember())) {
-            switch (currentStage) {
-                case MEMBER_GOVERNMENT_SPEECH -> startStage(event.getGuild(), Stage.OPPONENT_ASK_MEMBER_GOVERNMENT);
-                case MEMBER_OPPOSITION_SPEECH -> startStage(event.getGuild(), Stage.OPPONENT_ASK_MEMBER_OPPOSITION);
-            }
-        } else {
-            apiRepository.showEphemeralMessage(event, "Вы не являетесь дебатером");
         }
     }
 
@@ -148,38 +134,37 @@ public class DebateController {
 
         if (isGovernmentDebatersReady && isOppositionDebatersReady && isJudgesReady && !isDebateStarted) {
             isDebateStarted = true;
-            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
+            startStage(event.getMember().getGuild(), Stage.START_DEBATE, 0);
         }
     }
 
-    private void startStage(Guild guild, Stage stage) {
-        currentStage = stage;
+    private void startStage(Guild guild, @NotNull Stage stage, long time) {
         switch (stage) {
             case START_DEBATE -> startGreetingsStage(guild);
-            case DEBATERS_PREPARATION -> startDebatersPreparationStage(guild);
-            case HEAD_GOVERNMENT_FIRST_SPEECH -> startHeadGovernmentFirstSpeechStage(guild);
-            case HEAD_OPPOSITION_FIRST_SPEECH -> startHeadOppositionFirstSpeechStage(guild);
-            case MEMBER_GOVERNMENT_SPEECH -> startMemberGovernmentSpeechStage(guild);
-            case OPPONENT_ASK_MEMBER_GOVERNMENT -> startOpponentAskGovernmentStage(guild);
-            case MEMBER_OPPOSITION_SPEECH -> startMemberOppositionSpeechStage(guild);
-            case OPPONENT_ASK_MEMBER_OPPOSITION -> startOpponentAskOppositionStage(guild);
-            case HEAD_OPPOSITION_LAST_SPEECH -> startHeadOppositionLastSpeechStage(guild);
-            case HEAD_GOVERNMENT_LAST_SPEECH -> startHeadGovernmentLastSpeechStage(guild);
-            case JUDGES_PREPARATION -> startJudgesPreparationStage(guild);
-            case PAUSE -> startPause(guild);
-            case RESUME -> startResume(guild);
+            case DEBATERS_PREPARATION -> startDebatersPreparationStage(guild, time);
+            case HEAD_GOVERNMENT_FIRST_SPEECH -> startHeadGovernmentFirstSpeechStage(guild, time);
+            case HEAD_OPPOSITION_FIRST_SPEECH -> startHeadOppositionFirstSpeechStage(guild, time);
+            case MEMBER_GOVERNMENT_SPEECH -> startMemberGovernmentSpeechStage(guild, time);
+            case MEMBER_OPPOSITION_SPEECH -> startMemberOppositionSpeechStage(guild, time);
+            case OPPONENT_ASK -> startOpponentAskStage(guild, time);
+            case HEAD_OPPOSITION_LAST_SPEECH -> startHeadOppositionLastSpeechStage(guild, time);
+            case HEAD_GOVERNMENT_LAST_SPEECH -> startHeadGovernmentLastSpeechStage(guild, time);
+            case JUDGES_PREPARATION -> startJudgesPreparationStage(guild, time);
+            case PAUSE -> startPauseStage();
+            case RESUME -> startResumeStage(guild);
         }
+        currentStage = stage;
     }
 
 
     private void startGreetingsStage(Guild guild) {
         isDebateStarted = true;
         player.play(guild, AUDIO_BASE_PATH + "Приветствие.mp3", (track) -> {
-            startStage(guild, Stage.DEBATERS_PREPARATION);
+            startStage(guild, Stage.DEBATERS_PREPARATION, DEBATERS_PREPARATION_TIME);
         });
     }
 
-    private void startDebatersPreparationStage(Guild guild) {
+    private void startDebatersPreparationStage(Guild guild, long time) {
         List<Button> buttons = List.of(endDebateButton);
 
         player.play(guild, AUDIO_BASE_PATH + "Подготовка дебатеров.mp3", (track) -> {
@@ -189,9 +174,9 @@ public class DebateController {
                 CompletableFuture<Void> governmentMove = apiRepository.moveMembersAsync(governmentDebaters, governmentVoiceChannel);
                 oppositionMove.thenCompose(v -> governmentMove).thenRun(() -> {
                     player.play(guild, AUDIO_BASE_PATH + "Разговоры пока дебатеры готовятся.mp3", null);
-                    stageTimer.start("Дебатеры подготавливаются.", DEBATERS_PREPARATION_TIME, buttons, (title) -> {
+                    stageTimer.start("Дебатеры подготавливаются.", time, buttons, (title) -> {
                         apiRepository.moveMembersAsync(allDebaters, tribuneVoiceChannel).thenRun(() -> {
-                            startStage(guild, Stage.HEAD_GOVERNMENT_FIRST_SPEECH);
+                            startStage(guild, Stage.HEAD_GOVERNMENT_FIRST_SPEECH, HEAD_GOVERNMENT_FIRST_SPEECH_TIME);
                         });
                     });
                 });
@@ -199,79 +184,79 @@ public class DebateController {
         });
     }
 
-    private void startHeadGovernmentFirstSpeechStage(Guild guild) {
+    private void startHeadGovernmentFirstSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton);
         player.play(guild, AUDIO_BASE_PATH + "Вступ глава правительства.mp3", (track) -> {
-            stageTimer.start("Вступительная речь главы правительства.", HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH);
+            stageTimer.start("Вступительная речь главы правительства.", time, buttons, (title) -> {
+                startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH, HEAD_OPPOSITION_FIRST_SPEECH_TIME);
             });
         });
     }
 
-    private void startHeadOppositionFirstSpeechStage(Guild guild) {
+    private void startHeadOppositionFirstSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton);
         player.play(guild, AUDIO_BASE_PATH + "Вступ глава оппозиции.mp3", (track) -> {
-            stageTimer.start("Вступительная речь главы оппозиции.", HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
+            stageTimer.start("Вступительная речь главы оппозиции.", time, buttons, (title) -> {
+                startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH, MEMBER_GOVERNMENT_SPEECH_TIME);
             });
         });
     }
 
-    private void startMemberGovernmentSpeechStage(Guild guild) {
+    private void startMemberGovernmentSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton, askQuestionButton);
         player.play(guild, AUDIO_BASE_PATH + "Член правительства.mp3", (track) -> {
-            stageTimer.start("Речь члена правительства.", MEMBER_GOVERNMENT_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH);
+            stageTimer.start("Речь члена правительства.", time, buttons, (title) -> {
+                startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH, MEMBER_OPPOSITION_SPEECH_TIME);
             });
         });
     }
 
-    private void startOpponentAskGovernmentStage(Guild guild) {
-        player.play(guild, AUDIO_BASE_PATH + "Опонент задает вопрос", (track) -> {
-            stageTimer.start("Вопрос к члену Правительства", OPPONENT_ASK_MEMBER_GOVERNMENT, new ArrayList<>(), (title) -> {
-                startStage(guild, Stage.RESUME);
-            });
-        });
-    }
-
-    private void startMemberOppositionSpeechStage(Guild guild) {
+    private void startMemberOppositionSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton, askQuestionButton);
         player.play(guild, AUDIO_BASE_PATH + "Член оппозиции.mp3", (track) -> {
-            stageTimer.start("Речь члена оппозиции.", MEMBER_OPPOSITION_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH);
+            stageTimer.start("Речь члена оппозиции.", time, buttons, (title) -> {
+                startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH, HEAD_OPPOSITION_LAST_SPEECH_TIME);
             });
         });
     }
 
-    private void startOpponentAskOppositionStage(Guild guild) {
-        stageTimer.pause();
+    private void startOpponentAskStage(Guild guild, long time) {
+        startStage(guild, Stage.PAUSE, 0);
         player.play(guild, AUDIO_BASE_PATH + "Опонент задает вопрос", (track) -> {
-            stageTimer.start("Вопрос к члену оппозиции", OPPONENT_ASK_MEMBER_OPPOSITION, new ArrayList<>(), (title) -> {
-                startStage(guild, Stage.RESUME);
+            stageTimer.start("Уточняющий вопрос", time, new ArrayList<>(), (title) -> {
+                startStage(guild, Stage.RESUME, 0);
             });
         });
     }
 
+//    private void startOpponentAskOppositionStage(Guild guild, long time) {
+//        startStage(guild, Stage.PAUSE, 0);
+//        player.play(guild, AUDIO_BASE_PATH + "Опонент задает вопрос", (track) -> {
+//            stageTimer.start("Вопрос к члену оппозиции", time, new ArrayList<>(), (title) -> {
+//                startStage(guild, Stage.RESUME, 0);
+//            });
+//        });
+//    }
 
-    private void startHeadOppositionLastSpeechStage(Guild guild) {
+    private void startHeadOppositionLastSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton);
         player.play(guild, AUDIO_BASE_PATH + "Закл глава оппозиции.mp3", (track) -> {
-            stageTimer.start("Заключительная речь главы оппозиции.", HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
+            stageTimer.start("Заключительная речь главы оппозиции.", time, buttons, (title) -> {
+                startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH, HEAD_GOVERNMENT_LAST_SPEECH_TIME);
             });
         });
     }
 
-    private void startHeadGovernmentLastSpeechStage(Guild guild) {
+    private void startHeadGovernmentLastSpeechStage(Guild guild, long time) {
         List<Button> buttons = Arrays.asList(endDebateButton, endSpeechButton);
         player.play(guild, AUDIO_BASE_PATH + "Закл глава правительства.mp3", (track) -> {
-            stageTimer.start("Заключительная речь главы правительства.", HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, (title) -> {
-                startStage(guild, Stage.JUDGES_PREPARATION);
+            stageTimer.start("Заключительная речь главы правительства.", time, buttons, (title) -> {
+                startStage(guild, Stage.JUDGES_PREPARATION, JUDGES_PREPARATION_TIME);
             });
         });
     }
 
-    private void startJudgesPreparationStage(Guild guild) {
+    private void startJudgesPreparationStage(Guild guild, long time) {
         player.play(guild, AUDIO_BASE_PATH + "Подготовка судей.mp3", (track) -> {
             apiRepository.moveMembersAsync(judges, judgesVoiceChannel).thenRun(() -> {
                 player.play(guild, AUDIO_BASE_PATH + "Разговоры пока судьи готовятся.mp3", null);
@@ -284,12 +269,17 @@ public class DebateController {
         });
     }
 
-
-    private void startPause(Guild guild) {
-
+    private void startPauseStage() {
+        stageTimer.stop();
+        savedPausedStage = currentStage;
+        savedPausedTime = stageTimer.getCurrentTimeLeft();
+        savedPausedTitle = stageTimer.getTitle();
     }
 
-    private void startResume(Guild guild) {
+    private void startResumeStage(Guild guild) {
+        stageTimer.start(savedPausedTitle + " (Продолжение)", savedPausedTime, savedPausedButtons, (title) -> {
+            startStage(guild, savedPausedStage, savedPausedTime);
+        });
 
     }
 
@@ -297,6 +287,25 @@ public class DebateController {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setTitle("Тема: " + theme).setColor(Color.GREEN);
         tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
+    }
+
+
+    private void onEndDebateButton(ButtonInteractionEvent event) {
+
+    }
+
+    private void onEndSpeechButton(ButtonInteractionEvent event) {
+
+    }
+
+    private void onAskQuestionButton(ButtonInteractionEvent event) {
+        if (allDebaters.contains(event.getMember())) {
+            if (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH || currentStage == Stage.MEMBER_OPPOSITION_SPEECH) {
+                startStage(event.getGuild(), Stage.OPPONENT_ASK, OPPONENT_ASK_TIME);
+            }
+        } else {
+            apiRepository.showEphemeralMessage(event, "Вы не являетесь дебатером");
+        }
     }
 
 

@@ -67,18 +67,21 @@ public class MainListenerAdapter extends ListenerAdapter {
         }
     }
 
-    @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
-        String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
         String channelName = event.getChannel().getName();
 
-        if (channelId.equals(TextChannelsID.SUBSCRIBE)) {
-            subscribeTextChat.onButtonInteraction(event);
-        } else if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-            subscribeTextChat.debateController.onButtonInteraction(event);
+        if (event.getChannelType().equals(ChannelType.TEXT)) {
+            String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
+            if (channelId.equals(TextChannelsID.SUBSCRIBE)) {
+                subscribeTextChat.onButtonInteraction(event);
+            } else if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+                subscribeTextChat.debateController.onButtonInteraction(event);
+            }
+        } else {
+            if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+                subscribeTextChat.debateController.onButtonInteraction(event);
+            }
         }
-
-
     }
 
 
