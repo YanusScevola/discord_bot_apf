@@ -43,7 +43,6 @@ public class SubscribeTextChannel {
     private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
     private static final int START_DEBATE_TIMER = 2; //60
-    private static final int HELP_MESSAGE_TIME = 5; //5
 
     private long timerForStartDebate = 0;
     private boolean isDebateStarted = false;
@@ -111,10 +110,18 @@ public class SubscribeTextChannel {
 
     private void onDebaterSubscribeClick(@NotNull ButtonInteractionEvent event, User user) {
         if (event.getMember() != null) {
-            if (event.getMember().getVoiceState() != null && event.getMember().getVoiceState().inAudioChannel() && Objects.equals(Objects.requireNonNull(event.getMember().getVoiceState().getChannel()).getId(), VoiceChannelsID.WAITING_ROOM)) {
-                if (event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.DEBATER_APF))) {
-                    addDebaterToDb(user);
-                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_ADDED));
+            String channelId = event.getMember().getVoiceState().getChannel().getId();
+            boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
+            boolean isMemberHasJudgeRole = event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.DEBATER_APF));
+
+            if (isMemberInWaitingRoom) {
+                if (isMemberHasJudgeRole) {
+                    if (debatersList.contains(user)) {
+                        apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке дебатеров.");
+                    } else {
+                        addDebaterToDb(user);
+                        apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_ADDED));
+                    }
                 } else {
                     apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_DEBATER_ROLE));
                 }
@@ -126,10 +133,18 @@ public class SubscribeTextChannel {
 
     private void onJudgeSubscribeClick(@NotNull ButtonInteractionEvent event, User user) {
         if (event.getMember() != null) {
-            if (event.getMember().getVoiceState() != null && event.getMember().getVoiceState().inAudioChannel() && Objects.equals(Objects.requireNonNull(event.getMember().getVoiceState().getChannel()).getId(), VoiceChannelsID.WAITING_ROOM)) {
-                if (event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.JUDGE_APF))) {
-                    addJudgeToDb(user);
-                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
+            String channelId = event.getMember().getVoiceState().getChannel().getId();
+            boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
+            boolean isMemberHasJudgeRole = event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.JUDGE_APF));
+
+            if (isMemberInWaitingRoom) {
+                if (isMemberHasJudgeRole) {
+                    if (judgesList.contains(user)) {
+                        apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке судей.");
+                    } else {
+                        addJudgeToDb(user);
+                        apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
+                    }
                 } else {
                     apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_JUDGE_ROLE));
                 }
@@ -315,6 +330,5 @@ public class SubscribeTextChannel {
         update();
     }
 
-//
 
 }

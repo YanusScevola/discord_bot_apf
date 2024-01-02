@@ -41,7 +41,9 @@ public class MainListenerAdapter extends ListenerAdapter {
             }
 
             if (leftChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-                subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
+                if (subscribeTextChat != null && subscribeTextChat.debateController != null) {
+                    subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
+                }
             }
         }
 

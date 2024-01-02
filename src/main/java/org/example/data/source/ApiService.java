@@ -176,7 +176,7 @@ public class ApiService {
 
     public void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
         if (!event.isAcknowledged()) {
-            event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(5, TimeUnit.SECONDS)));
+            event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(3, TimeUnit.SECONDS)));
         } else {
 //            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
         }

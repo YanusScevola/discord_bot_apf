@@ -49,7 +49,7 @@ public class PlayerManager {
             public void trackLoaded(AudioTrack track) {
                 guildMusicManager.getTrackScheduler().setEndCallback(track, callback);
                 guildMusicManager.getTrackScheduler().queue(track);
-                System.out.println("trackLoaded");
+//                System.out.println("trackLoaded");
             }
 
             @Override
