@@ -3,6 +3,7 @@ package org.example.data.repository;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
@@ -22,25 +23,30 @@ public class ApiRepository {
         this.apiService = ApiService.getInstance(jda);
     }
 
-
     public TextChannel getTextChannel(String channelId) {
         return apiService.getTextChannel(channelId);
     }
 
-    public CompletableFuture<List<Member>> getMembersByRole(String roleId) {
+    public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
         return apiService.getMembersByRole(roleId);
     }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
-        return apiService.getMessageByIndex(channel,index);
+        return apiService.getMessageByIndex(channel, index);
     }
 
-    public CompletableFuture<Category> getCategoryByID(String id) {
+    public CompletableFuture<Category> getCategoryByID(long id) {
         return apiService.getCategoryByID(id);
     }
+    public CompletableFuture<Role> getRoleByID(long id) {
+        return apiService.getRoleByID(id);
+    }
 
-    public CompletableFuture<Void> assignRoleToUser(String userId, String roleId) {
-        return apiService.assignRoleToUser(userId, roleId);
+    public CompletableFuture<Void> addRoleToUser(String userId, long roleId) {
+        return apiService.addRoleToUser(userId, roleId);
+    }
+    public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
+        return apiService.removeRoleFromUser(userId, roleId);
     }
 
     public CompletableFuture<Void> moveMembersAsync(Set<Member> members, VoiceChannel targetChannel) {

@@ -33,10 +33,10 @@ public class MainListenerAdapter extends ListenerAdapter {
     @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
         if (event.getChannelLeft() != null) {
-            String channelId = String.valueOf(event.getChannelLeft().getIdLong());
+            long channelId = event.getChannelLeft().getIdLong();
             String leftChannelName = event.getChannelLeft().getName();
 
-            if (channelId.equals(VoiceChannelsID.WAITING_ROOM)) {
+            if (channelId == VoiceChannelsID.WAITING_ROOM) {
                 subscribeTextChat.onLeaveFromVoiceChannel(event);
             }
 

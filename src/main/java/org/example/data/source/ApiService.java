@@ -1,6 +1,5 @@
 package org.example.data.source;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -14,7 +13,6 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.example.ui.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.Color;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -32,6 +30,7 @@ public class ApiService {
 
     private ApiService() {
     }
+
 
     private static class SingletonHolder {
         private static final ApiService INSTANCE = new ApiService();
@@ -60,7 +59,7 @@ public class ApiService {
         return future;
     }
 
-    public CompletableFuture<List<Member>> getMembersByRole(String roleId) {
+    public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
         return CompletableFuture.supplyAsync(() -> {
             CompletableFuture<List<Member>> internalFuture = new CompletableFuture<>();
             if (server == null) {
@@ -80,8 +79,8 @@ public class ApiService {
                         internalFuture.complete(filteredMembers);
                     })
                     .onError(e ->
-                                    internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
-                            );
+                            internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
+                    );
             try {
                 return internalFuture.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -106,7 +105,7 @@ public class ApiService {
     }
 
 
-    public CompletableFuture<Category> getCategoryByID(String id) {
+    public CompletableFuture<Category> getCategoryByID(long id) {
         CompletableFuture<Category> future = new CompletableFuture<>();
         if (server == null) {
             future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
@@ -121,7 +120,22 @@ public class ApiService {
         return future;
     }
 
-    public CompletableFuture<Void> assignRoleToUser(String userId, String roleId) {
+    public CompletableFuture<Role> getRoleByID(long id) {
+        CompletableFuture<Role> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return future;
+        }
+        Role role = server.getRoleById(id);
+        if (role == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
+            return future;
+        }
+        future.complete(role);
+        return future;
+    }
+
+    public CompletableFuture<Void> addRoleToUser(String userId, long roleId) {
         CompletableFuture<Void> future = new CompletableFuture<>();
         if (server == null) {
             future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
@@ -137,7 +151,29 @@ public class ApiService {
         server.retrieveMemberById(userId).queue(member -> {
             server.addRoleToMember(member, role).queue(
                     error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при присвоении роли: " + error)) // Ошибка при присвоении роли
-                                                      );
+            );
+        }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
+
+        return future;
+    }
+
+    public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return future;
+        }
+
+        Role role = server.getRoleById(roleId);
+        if (role == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такой роли: " + roleId));
+            return future;
+        }
+
+        server.retrieveMemberById(userId).queue(member -> {
+            server.removeRoleFromMember(member, role).queue(
+                    error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при удалении роли: " + error)) // Ошибка при удалении роли
+            );
         }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
 
         return future;
@@ -181,7 +217,6 @@ public class ApiService {
 //            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
         }
     }
-
 
 
 }
