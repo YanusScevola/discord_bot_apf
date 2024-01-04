@@ -40,7 +40,6 @@ public class PlayerManager {
         });
     }
 
-
     public void play(Guild guild, String trackURL, TrackScheduler.TrackEndCallback callback) {
         GuildMusicManager guildMusicManager = getGuildMusicManager(guild);
 

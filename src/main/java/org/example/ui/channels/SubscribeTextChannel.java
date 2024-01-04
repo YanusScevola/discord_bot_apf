@@ -14,6 +14,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
@@ -27,10 +28,10 @@ import org.example.ui.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.ui.constants.VoiceChannelsID;
-import org.example.utils.Utils;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeTextChannel {
+
     TextChannel channel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
@@ -40,7 +41,7 @@ public class SubscribeTextChannel {
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
-    private static final int DEBATERS_LIMIT = 1; //4
+    private static final int DEBATERS_LIMIT = 3; //4
     private static final int JUDGES_LIMIT = 1; //1
     private static final int START_DEBATE_TIMER = 2; //60
 
@@ -53,7 +54,8 @@ public class SubscribeTextChannel {
     List<User> judgesList = new ArrayList<>();
 
 
-    public SubscribeTextChannel(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes) {
+    public SubscribeTextChannel(ApiRepository apiRepository, DbRepository dbRepository,
+                                StringRes stringsRes) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
         this.stringsRes = stringsRes;
@@ -73,23 +75,33 @@ public class SubscribeTextChannel {
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         User user = Objects.requireNonNull(event.getMember()).getUser();
         switch (event.getComponentId()) {
-            case DEBATER_SUBSCRIBE_BTN_ID -> onDebaterSubscribeClick(event, user);
-            case JUDGE_SUBSCRIBE_BTN_ID -> onJudgeSubscribeClick(event, user);
+            case DEBATER_SUBSCRIBE_BTN_ID -> onClickDebaterSubscribeBtn(event, user);
+            case JUDGE_SUBSCRIBE_BTN_ID -> onClickJudgeSubscribeBtn(event, user);
             case UNSUBSCRIBE_BTN_ID -> onUnsubscribeClick(event, user);
         }
     }
 
     public void onLeaveFromVoiceChannel(@NotNull GuildVoiceUpdateEvent event) {
-        boolean isDebaterSubscriber = debatersList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
-        boolean isJudgeSubscriber = judgesList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        boolean isDebaterSubscriber = debatersList.stream()
+                .anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        boolean isJudgeSubscriber = judgesList.stream()
+                .anyMatch(user -> user.getId().equals(event.getMember().getId()));
         if (timerForStartDebate == 0) {
             if (!isDebateStarted) {
-                if (isDebaterSubscriber) removeDebaterFromList(event.getMember().getUser());
-                if (isJudgeSubscriber && !isDebateStarted) removeJudgeFromList(event.getMember().getUser());
+                if (isDebaterSubscriber) {
+                    removeDebaterFromList(event.getMember().getUser());
+                }
+                if (isJudgeSubscriber && !isDebateStarted) {
+                    removeJudgeFromList(event.getMember().getUser());
+                }
             }
         } else {
-            if (isDebaterSubscriber) removeDebaterFromList(event.getMember().getUser());
-            if (isJudgeSubscriber && !isDebateStarted) removeJudgeFromList(event.getMember().getUser());
+            if (isDebaterSubscriber) {
+                removeDebaterFromList(event.getMember().getUser());
+            }
+            if (isJudgeSubscriber && !isDebateStarted) {
+                removeJudgeFromList(event.getMember().getUser());
+            }
         }
 
     }
@@ -98,7 +110,11 @@ public class SubscribeTextChannel {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setColor(new Color(54, 57, 63));
         embedBuilder.setTitle(stringsRes.get(StringRes.Key.DEBATE_SUBSCRIBE_TITLE));
-        embedBuilder.addField(stringsRes.get(StringRes.Key.DEBATER_LIST_TITLE), stringsRes.get(StringRes.Key.NO_MEMBERS), true);
+        embedBuilder.addField(
+                stringsRes.get(StringRes.Key.DEBATER_LIST_TITLE),
+                stringsRes.get(StringRes.Key.NO_MEMBERS),
+                true
+        );
         embedBuilder.addField(stringsRes.get(StringRes.Key.JUDGES_LIST_TITLE), stringsRes.get(StringRes.Key.NO_MEMBERS), true);
 
         Button debaterButton = Button.success(DEBATER_SUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_SUBSCRIBE_DEBATER));
@@ -108,51 +124,70 @@ public class SubscribeTextChannel {
         channel.sendMessageEmbeds(embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
     }
 
-    private void onDebaterSubscribeClick(@NotNull ButtonInteractionEvent event, User user) {
+    private void onClickDebaterSubscribeBtn(@NotNull ButtonInteractionEvent event, User user) {
         if (event.getMember() != null) {
-            String channelId = event.getMember().getVoiceState().getChannel().getId();
-            boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
-            boolean isMemberHasJudgeRole = event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.DEBATER_APF));
+            AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState())
+                    .getChannel();
+            if (voiceChannel != null) {  // Проверяем, не null ли объект Channel
+                String channelId = voiceChannel.getId();
+                boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
+                boolean isMemberHasJudgeRole = event.getMember().getRoles().stream()
+                        .anyMatch(role -> role.getId().equals(
+                                RolesID.DEBATER_APF));
 
-            if (isMemberInWaitingRoom) {
-                if (isMemberHasJudgeRole) {
-                    if (debatersList.contains(user)) {
-                        apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке дебатеров.");
+                if (isMemberInWaitingRoom) {
+                    if (isMemberHasJudgeRole) {
+                        if (debatersList.contains(user)) {
+                            apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке дебатеров.");
+                        } else {
+                            addDebaterToDb(user);
+                            apiRepository.showEphemeralMessage(event,
+                                    stringsRes.get(StringRes.Key.DEBATER_ADDED));
+                        }
                     } else {
-                        addDebaterToDb(user);
-                        apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_ADDED));
+                        apiRepository.showEphemeralMessage(event,
+                                stringsRes.get(StringRes.Key.NEED_DEBATER_ROLE));
                     }
                 } else {
-                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_DEBATER_ROLE));
+                    apiRepository.showEphemeralMessage(event,
+                            stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
                 }
             } else {
-                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
+                apiRepository.showEphemeralMessage(event, "Необходимо находиться в голосовом канале.");
             }
         }
     }
 
-    private void onJudgeSubscribeClick(@NotNull ButtonInteractionEvent event, User user) {
-        if (event.getMember() != null) {
-            String channelId = event.getMember().getVoiceState().getChannel().getId();
-            boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
-            boolean isMemberHasJudgeRole = event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.JUDGE_APF));
 
-            if (isMemberInWaitingRoom) {
-                if (isMemberHasJudgeRole) {
-                    if (judgesList.contains(user)) {
-                        apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке судей.");
+    private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, User user) {
+        if (event.getMember() != null) {
+            AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
+            if (voiceChannel != null) {
+                String channelId = voiceChannel.getId();
+                boolean isMemberInWaitingRoom = Objects.equals(channelId, VoiceChannelsID.WAITING_ROOM);
+                boolean isMemberHasJudgeRole = event.getMember().getRoles().stream().anyMatch(role -> role.getId().equals(RolesID.JUDGE_APF));
+
+                if (isMemberInWaitingRoom) {
+                    if (isMemberHasJudgeRole) {
+                        if (judgesList.contains(user)) {
+                            apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке судей.");
+                        } else {
+                            addJudgeToDb(user);
+                            apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
+                        }
                     } else {
-                        addJudgeToDb(user);
-                        apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.JUDGE_ADDED));
+                        apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_JUDGE_ROLE));
                     }
                 } else {
-                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_JUDGE_ROLE));
+                    apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
                 }
             } else {
-                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.NEED_WAITING_ROOM));
+                // Сообщение пользователю, если он не в голосовом канале
+                apiRepository.showEphemeralMessage(event, "Необходимо находиться в голосовом канале.");
             }
         }
     }
+
 
     private void onUnsubscribeClick(ButtonInteractionEvent event, User user) {
         channel.getHistoryFromBeginning(1).queue(history -> {
@@ -173,7 +208,8 @@ public class SubscribeTextChannel {
                 removeDebaterFromList(user);
                 apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_REMOVED));
             } else {
-                apiRepository.showEphemeralMessage(event, stringsRes.get(StringRes.Key.DEBATER_NOT_SUBSCRIBED));
+                apiRepository.showEphemeralMessage(event,
+                        stringsRes.get(StringRes.Key.DEBATER_NOT_SUBSCRIBED));
             }
         });
     }
@@ -194,7 +230,8 @@ public class SubscribeTextChannel {
                 String judgeListString = judges.isEmpty() ? stringsRes.get(StringRes.Key.NO_MEMBERS) : String.join("\n", judges);
                 embedBuilder.addField(stringsRes.get(StringRes.Key.JUDGES_LIST_TITLE), judgeListString, true);
 
-                if (debaters.size() >= DEBATERS_LIMIT && judges.size() >= JUDGES_LIMIT && timerForStartDebate == 0) {
+                if (debaters.size() >= DEBATERS_LIMIT && judges.size() >= JUDGES_LIMIT
+                        && timerForStartDebate == 0) {
                     timerForStartDebate = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
                     String timerMessage = "<t:" + timerForStartDebate + ":R>";
                     embedBuilder.addField(stringsRes.get(StringRes.Key.TIMER_TITLE), timerMessage, false);
@@ -216,7 +253,12 @@ public class SubscribeTextChannel {
             if (System.currentTimeMillis() / 1000L >= timerForStartDebate && timerForStartDebate != 0) {
                 EmbedBuilder embedBuilder = new EmbedBuilder(message.getEmbeds().get(0));
 
-                embedBuilder.getFields().stream().filter(field -> Objects.equals(field.getName(), stringsRes.get(StringRes.Key.TIMER_TITLE))).findFirst().ifPresent(field -> embedBuilder.addField(Objects.requireNonNull(field.getName()), stringsRes.get(StringRes.Key.DEBATE_STARTED), false));
+                embedBuilder.getFields().stream().filter(field ->
+                        Objects.equals(field.getName(), stringsRes.get(StringRes.Key.TIMER_TITLE))
+                ).findFirst().ifPresent(field ->
+                        embedBuilder.addField(Objects.requireNonNull(field.getName()), stringsRes.get(StringRes.Key.DEBATE_STARTED), false)
+                );
+
                 if (embedBuilder.getFields().size() > 2) {
                     embedBuilder.getFields().remove(2);
                 } else {
@@ -228,13 +270,15 @@ public class SubscribeTextChannel {
                 Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_UNSUBSCRIBE)).asDisabled();
 
                 channel.editMessageEmbedsById(message.getId(), embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
+
                 timerForStartDebate = 0;
                 isDebateStarted = true;
                 debateController = new DebateController(apiRepository, dbRepository);
+
                 createVoiceChannels();
                 assignRoleToUser(debatersList, judgesList);
-
             }
+
         }), START_DEBATE_TIMER, TimeUnit.SECONDS);
     }
 
@@ -248,7 +292,12 @@ public class SubscribeTextChannel {
             List<Permission> deny = new ArrayList<>(Collections.singletonList(Permission.VIEW_CHANNEL));
             List<Permission> allowForTribune = new ArrayList<>(Collections.singletonList(Permission.VIEW_CHANNEL));
             List<Permission> denyForTribune = new ArrayList<>();
-            List<String> channelNames = List.of(stringsRes.get(StringRes.Key.JUDGE_CHANNEL_NAME), stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME), stringsRes.get(StringRes.Key.GOVERNMENT_CHANNEL_NAME), stringsRes.get(StringRes.Key.OPPOSITION_CHANNEL_NAME));
+            List<String> channelNames = List.of(
+                    stringsRes.get(StringRes.Key.JUDGE_CHANNEL_NAME),
+                    stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME),
+                    stringsRes.get(StringRes.Key.GOVERNMENT_CHANNEL_NAME),
+                    stringsRes.get(StringRes.Key.OPPOSITION_CHANNEL_NAME)
+            );
             List<VoiceChannel> existingChannels = category.getVoiceChannels();
 
             for (String name : channelNames) {
@@ -261,10 +310,12 @@ public class SubscribeTextChannel {
                     }
                 }
 
-                category.createVoiceChannel(name).addPermissionOverride(everyoneRole, isOpen ? allowForTribune : allow, isOpen ? denyForTribune : deny).queue(channel -> {
-                    if (name.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
-                        moveBotToVoiceChannel(channel);
-                    }
+                category.createVoiceChannel(name).addPermissionOverride(
+                        everyoneRole,
+                        isOpen ? allowForTribune : allow,
+                        isOpen ? denyForTribune : deny
+                ).queue(channel -> {
+                    if (name.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) moveBotToVoiceChannel(channel);
                     debateController.addChannel(channel);
                 });
             }
@@ -299,9 +350,11 @@ public class SubscribeTextChannel {
             AudioManager audioManager = guild.getAudioManager();
             if (!audioManager.isConnected() && !audioManager.isConnected()) {
                 audioManager.openAudioConnection(channel);
-//                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " + channel.getName());
+//                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " +
+//                channel.getName());
             } else {
-//                Utils.sendLogError(apiRepository, "joinVoiceChannel", "Бот уже находится в голосовом канале или пытается подключиться.");
+//                Utils.sendLogError(apiRepository, "joinVoiceChannel", "Бот уже находится в голосовом канале или
+//                пытается подключиться.");
             }
         } else {
 //            Utils.sendLogError(apiRepository, "joinVoiceChannel", "Голосовой канал не найден.");
