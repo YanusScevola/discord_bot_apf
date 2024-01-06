@@ -16,7 +16,7 @@ public class Main {
 //            Database.getInstance();
 
             jda = JDABuilder.createDefault(token)
-                    .setActivity(Activity.playing("!help"))
+                    .setActivity(Activity.playing("Дебаты"))
                     .setStatus(OnlineStatus.ONLINE)
                     .addEventListeners(new MainListenerAdapter())
                     .enableIntents(GatewayIntent.GUILD_MEMBERS)

@@ -1,6 +1,7 @@
 package org.example.data.source;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
@@ -13,14 +14,12 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.example.ui.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ApiService {
@@ -43,7 +42,7 @@ public class ApiService {
         return SingletonHolder.INSTANCE;
     }
 
-    public TextChannel getTextChannel(String channelId) {
+    public TextChannel getTextChannel(long channelId) {
         return jda.getTextChannelById(channelId);
     }
 
@@ -135,27 +134,57 @@ public class ApiService {
         return future;
     }
 
-    public CompletableFuture<Void> addRoleToUser(String userId, long roleId) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        if (server == null) {
-            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
-            return future;
+    public void addRoleToMembers(Map<Member, Long> memberToRoleMap, Runnable callback) {
+        if (memberToRoleMap == null || memberToRoleMap.isEmpty()) {
+            System.err.println("Словарь участников и ролей пуст или не предоставлен.");
+            if (callback != null) {
+                callback.run();
+            }
+            return;
         }
 
-        Role role = server.getRoleById(roleId);
-        if (role == null) {
-            future.completeExceptionally(new IllegalArgumentException("Нет такой роли: " + roleId));
-            return future;
-        }
+        final int[] totalOperations = {0};
+        final int[] completedOperations = {0};
 
-        server.retrieveMemberById(userId).queue(member -> {
+        // Устанавливаем общее количество операций на размер словаря.
+        totalOperations[0] = memberToRoleMap.size();
+
+        for (Map.Entry<Member, Long> entry : memberToRoleMap.entrySet()) {
+            Member member = entry.getKey();
+            Long roleId = entry.getValue();
+
+            if (member == null) {
+                System.err.println("Один из участников является null.");
+                completedOperations[0]++;
+                continue;
+            }
+
+            Role role = server.getRoleById(roleId);
+            if (role == null) {
+                System.err.println("Роль с ID " + roleId + " не найдена на сервере.");
+                completedOperations[0]++;
+                continue;
+            }
+
             server.addRoleToMember(member, role).queue(
-                    error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при присвоении роли: " + error)) // Ошибка при присвоении роли
+                    success -> {
+                        completedOperations[0]++;
+                        if (completedOperations[0] == totalOperations[0] && callback != null) {
+                            callback.run();
+                        }
+                    },
+                    failure -> {
+                        System.err.println("Не удалось выдать роль " + role.getName() + " участнику: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
+                        completedOperations[0]++;
+                        if (completedOperations[0] == totalOperations[0] && callback != null) {
+                            callback.run();
+                        }
+                    }
             );
-        }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
-
-        return future;
+        }
     }
+
+
 
     public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
         CompletableFuture<Void> future = new CompletableFuture<>();
@@ -179,42 +208,78 @@ public class ApiService {
         return future;
     }
 
-    public CompletableFuture<Void> moveMembersAsync(Set<Member> members, VoiceChannel targetChannel) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        AtomicInteger counter = new AtomicInteger(members.size());
-
-        if (members.isEmpty()) {
-            future.complete(null);
-            return future;
-        }
-
-        for (Member member : members) {
-            if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
-                if (Objects.equals(member.getVoiceState().getChannel(), targetChannel)) {
-                    if (counter.decrementAndGet() == 0) {
-                        future.complete(null);
-                    }
-                } else {
-                    member.getGuild().moveVoiceMember(member, targetChannel).queue(success -> {
-                        if (counter.decrementAndGet() == 0) {
-                            future.complete(null);
-                        }
-                    }, future::completeExceptionally);
-                }
-            } else {
-                if (counter.decrementAndGet() == 0) future.complete(null);
-
-            }
-        }
-
-        return future;
-    }
 
     public void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
         if (!event.isAcknowledged()) {
             event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(3, TimeUnit.SECONDS)));
         } else {
 //            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
+        }
+    }
+
+    public void muteMembers(List<Member> members, boolean mute, Runnable callback) {
+        try {
+            if (members.isEmpty()) {
+                callback.run();
+                return;
+            }
+
+            final int[] counter = {0};
+
+            for (Member member : members) {
+                if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
+                    member.mute(mute).queue(
+                            success -> {
+                                if (++counter[0] == members.size() && callback != null) {
+                                    callback.run();
+                                }
+                            },
+                            failure -> {
+                                System.err.println("Не удалось отключить микрофон у участника: " + member.getEffectiveName());
+                                if (++counter[0] == members.size() && callback != null) {
+                                    callback.run();
+                                }
+                            }
+                    );
+                } else {
+                    System.err.println("Участник не в голосовом канале: " + member.getEffectiveName());
+                    if (++counter[0] == members.size() && callback != null) {
+                        callback.run();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public void moveMembers(List<Member> members, VoiceChannel targetChannel, Runnable callback) {
+        try {
+            if (members.isEmpty()) {
+                callback.run();
+                return;
+            }
+
+            final int[] counter = {0};
+
+            for (Member member : members) {
+                member.getGuild().moveVoiceMember(member, targetChannel).queue(
+                        success -> {
+                            if (++counter[0] == members.size()) {
+                                callback.run();
+                            }
+                        },
+                        failure -> {
+                            System.err.println("Не удалось переместить участника: " + member.getEffectiveName());
+                            if (++counter[0] == members.size()) {
+                                callback.run();
+                            }
+                        }
+                );
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

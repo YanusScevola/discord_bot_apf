@@ -61,9 +61,9 @@ public class MainListenerAdapter extends ListenerAdapter {
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (event.getChannel().getType() == ChannelType.TEXT) {
-            String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
+            long channelId = event.getChannel().asTextChannel().getIdLong();
 
-            if (channelId.equals(TextChannelsID.RATING)) {
+            if (channelId == TextChannelsID.RATING) {
             }
 
         }
@@ -73,8 +73,8 @@ public class MainListenerAdapter extends ListenerAdapter {
         String channelName = event.getChannel().getName();
 
         if (event.getChannelType().equals(ChannelType.TEXT)) {
-            String channelId = String.valueOf(event.getChannel().asTextChannel().getIdLong());
-            if (channelId.equals(TextChannelsID.SUBSCRIBE)) {
+            long channelId = event.getChannel().asTextChannel().getIdLong();
+            if (channelId == TextChannelsID.SUBSCRIBE) {
                 subscribeTextChat.onButtonInteraction(event);
             } else if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
                 subscribeTextChat.debateController.onButtonInteraction(event);

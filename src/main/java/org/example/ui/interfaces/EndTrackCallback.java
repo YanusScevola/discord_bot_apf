@@ -1,1 +1,0 @@
-package org.example.ui.interfaces;@FunctionalInterfacepublic interface EndTrackCallback {    void onTrackEnd();}

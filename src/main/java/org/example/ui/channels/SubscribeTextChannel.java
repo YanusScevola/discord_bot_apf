@@ -30,11 +30,6 @@ import org.example.ui.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeTextChannel {
-    TextChannel channel;
-    ApiRepository apiRepository;
-    DbRepository dbRepository;
-    StringRes stringsRes;
-
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
@@ -44,9 +39,15 @@ public class SubscribeTextChannel {
 
     private static final int START_DEBATE_TIMER = 5; //60
 
-    List<Long> debaterRoles = List.of(RolesID.HEAD_GOVERNMENT, RolesID.HEAD_OPPOSITION, RolesID.MEMBER_GOVERNMENT, RolesID.MEMBER_OPPOSITION);
-    List<Member> debatersList = new ArrayList<>();
-    List<Member> judgesList = new ArrayList<>();
+    TextChannel channel;
+    ApiRepository apiRepository;
+    DbRepository dbRepository;
+    StringRes stringsRes;
+
+    List<Long> debaterRoles = new ArrayList<>();
+    List<String> voiceChannelsNames = new ArrayList<>();
+    List<Member> subscribeDebatersList = new ArrayList<>();
+    List<Member> subscribeJudgesList = new ArrayList<>();
 
     private long timerForStartDebate = 0;
     private boolean isDebateStarted = false;
@@ -58,6 +59,20 @@ public class SubscribeTextChannel {
         this.dbRepository = dbRepository;
         this.stringsRes = stringsRes;
         this.channel = apiRepository.getTextChannel(TextChannelsID.SUBSCRIBE);
+
+        debaterRoles = List.of(
+                RolesID.DEBATER_APF,
+                RolesID.DEBATER_APF,
+                RolesID.DEBATER_APF,
+                RolesID.DEBATER_APF
+        );
+
+        voiceChannelsNames = List.of(
+                stringsRes.get(StringRes.Key.JUDGE_CHANNEL_NAME),
+                stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME),
+                stringsRes.get(StringRes.Key.GOVERNMENT_CHANNEL_NAME),
+                stringsRes.get(StringRes.Key.OPPOSITION_CHANNEL_NAME)
+        );
 
         this.channel.getHistoryFromBeginning(1).queue(history -> {
             if (history.isEmpty()) {
@@ -80,8 +95,8 @@ public class SubscribeTextChannel {
     }
 
     public void onLeaveFromVoiceChannel(@NotNull GuildVoiceUpdateEvent event) {
-        boolean isDebaterSubscriber = debatersList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
-        boolean isJudgeSubscriber = judgesList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        boolean isDebaterSubscriber = subscribeDebatersList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
+        boolean isJudgeSubscriber = subscribeJudgesList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
         if (timerForStartDebate == 0) {
             if (!isDebateStarted) {
                 if (isDebaterSubscriber) {
@@ -125,7 +140,7 @@ public class SubscribeTextChannel {
 
                 if (isMemberInWaitingRoom) {
                     if (isMemberHasJudgeRole) {
-                        if (debatersList.contains(member)) {
+                        if (subscribeDebatersList.contains(member)) {
                             apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке дебатеров.");
                         } else {
                             addDebaterToList(member);
@@ -143,6 +158,7 @@ public class SubscribeTextChannel {
         }
     }
 
+    //TODO: Судей должно быть не четное количество
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         if (event.getMember() != null) {
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
@@ -152,7 +168,7 @@ public class SubscribeTextChannel {
 
                 if (isMemberInWaitingRoom) {
                     if (isMemberHasJudgeRole) {
-                        if (judgesList.contains(member)) {
+                        if (subscribeJudgesList.contains(member)) {
                             apiRepository.showEphemeralMessage(event, "Вы уже находитесь в списке судей.");
                         } else {
                             addJudgeToList(member);
@@ -204,11 +220,11 @@ public class SubscribeTextChannel {
                 embedBuilder.setColor(new Color(54, 57, 63));
                 embedBuilder.setTitle(stringsRes.get(StringRes.Key.DEBATE_SUBSCRIBE_TITLE));
 
-                List<String> debaters = debatersList.stream().map(Member::getAsMention).toList();
+                List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).toList();
                 String debaterListString = debaters.isEmpty() ? stringsRes.get(StringRes.Key.NO_MEMBERS) : String.join("\n", debaters);
                 embedBuilder.addField(stringsRes.get(StringRes.Key.DEBATER_LIST_TITLE), debaterListString, true);
 
-                List<String> judges = judgesList.stream().map(Member::getAsMention).toList();
+                List<String> judges = subscribeJudgesList.stream().map(Member::getAsMention).toList();
                 String judgeListString = judges.isEmpty() ? stringsRes.get(StringRes.Key.NO_MEMBERS) : String.join("\n", judges);
                 embedBuilder.addField(stringsRes.get(StringRes.Key.JUDGES_LIST_TITLE), judgeListString, true);
 
@@ -216,8 +232,8 @@ public class SubscribeTextChannel {
                 Button judgeButton = Button.primary(JUDGE_SUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_SUBSCRIBE_JUDGE));
                 Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_UNSUBSCRIBE));
 
-                if (debaters.size() >= DEBATERS_LIMIT && judges.size() >= JUDGES_LIMIT && timerForStartDebate == 0) {
-                    startDebateTimer(message, embedBuilder);
+                if (subscribeDebatersList.size() >= DEBATERS_LIMIT && subscribeJudgesList.size() >= JUDGES_LIMIT && timerForStartDebate == 0) {
+                    startDebateTimer(message.getIdLong(), embedBuilder);
                 }
 
                 channel.editMessageEmbedsById(message.getId(), embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
@@ -225,14 +241,11 @@ public class SubscribeTextChannel {
         });
     }
 
-    private void startDebateTimer(Message message, EmbedBuilder embedBuilder) {
+    private void startDebateTimer(long messageId, EmbedBuilder embed) {
         timerForStartDebate = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
         String timerMessage = "<t:" + timerForStartDebate + ":R>";
-        embedBuilder.addField(stringsRes.get(StringRes.Key.TIMER_TITLE), timerMessage, false);
-        startDebate(message.getIdLong());
-    }
+        embed.addField(stringsRes.get(StringRes.Key.TIMER_TITLE), timerMessage, false);
 
-    private void startDebate(long messageId) {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         debateStartTask = scheduler.schedule(() -> channel.retrieveMessageById(messageId).queue(message -> {
             if (System.currentTimeMillis() / 1000L >= timerForStartDebate && timerForStartDebate != 0) {
@@ -260,13 +273,9 @@ public class SubscribeTextChannel {
                 isDebateStarted = true;
                 debateController = new DebateController(apiRepository, dbRepository);
 
-                addRoleForMembers(debatersList, judgesList);
-                createVoiceChannels(List.of(
-                        stringsRes.get(StringRes.Key.JUDGE_CHANNEL_NAME),
-                        stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME),
-                        stringsRes.get(StringRes.Key.GOVERNMENT_CHANNEL_NAME),
-                        stringsRes.get(StringRes.Key.OPPOSITION_CHANNEL_NAME)
-                ));
+                setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> {
+                    createVoiceChannels(voiceChannelsNames);
+                });
             }
 
         }), START_DEBATE_TIMER, TimeUnit.SECONDS);
@@ -285,6 +294,9 @@ public class SubscribeTextChannel {
                 boolean isGovernment = channelName.equals(stringsRes.get(StringRes.Key.GOVERNMENT_CHANNEL_NAME));
                 boolean isOpposition = channelName.equals(stringsRes.get(StringRes.Key.OPPOSITION_CHANNEL_NAME));
 
+                HashMap<Long, List<Permission>> allowPermissions = new HashMap<>();
+                HashMap<Long, List<Permission>> denyPermissions = new HashMap<>();
+
                 // Проверяем, существует ли канал с таким именем и удаляем его.
                 for (VoiceChannel existingChannel : existingChannels) {
                     if (existingChannel.getName().equalsIgnoreCase(channelName)) {
@@ -293,31 +305,19 @@ public class SubscribeTextChannel {
                     }
                 }
 
-                HashMap<Long, List<Permission>> allowPermissions = new HashMap<>();
-                HashMap<Long, List<Permission>> denyPermissions = new HashMap<>();
-
                 if (isJudge) {
-                    allowPermissions.put(RolesID.JUDGE, List.of(Permission.VOICE_CONNECT, Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.JUDGE, List.of(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.HEAD_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.HEAD_OPPOSITION, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.MEMBER_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.MEMBER_OPPOSITION, List.of(Permission.VOICE_CONNECT));
                 } else if (isTribune) {
                     allowPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_SPEAK));
                 } else if (isGovernment) {
                     allowPermissions.put(RolesID.HEAD_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
                     allowPermissions.put(RolesID.MEMBER_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.HEAD_OPPOSITION, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.MEMBER_OPPOSITION, List.of(Permission.VOICE_CONNECT));
                 } else if (isOpposition) {
                     allowPermissions.put(RolesID.HEAD_OPPOSITION, List.of(Permission.VOICE_CONNECT));
                     allowPermissions.put(RolesID.MEMBER_OPPOSITION, List.of(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.HEAD_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(RolesID.MEMBER_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
                 }
 
                 category.createVoiceChannel(channelName)
@@ -337,19 +337,30 @@ public class SubscribeTextChannel {
         }
     }
 
-    private void addRoleForMembers(List<Member> debatersList, List<Member> judgesList) {
-        if (!debatersList.isEmpty()) {
-            Collections.shuffle(debatersList);
-            for (int i = 0; i < debatersList.size(); i++) apiRepository.addRoleToUser(debatersList.get(i).getId(), debaterRoles.get(i));
-            judgesList.forEach(user -> apiRepository.addRoleToUser(user.getId(), RolesID.JUDGE));
-        }
+    private void setupDebateRoles(List<Member> subscribeDebatersList, List<Member> judgesList, Runnable callback ) {
+            Collections.shuffle(subscribeDebatersList);
+            Map<Member, Long> membersToRolesMap = new HashMap<>();
+            Map<Member, Long> judgesToRolesMap = new HashMap<>();
+
+
+            for (int i = 0; i < DEBATERS_LIMIT; i++) {
+                membersToRolesMap.put(subscribeDebatersList.get(i), debaterRoles.get(i));
+            }
+            for (int i = 0; i < JUDGES_LIMIT; i++) {
+                judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
+            }
+
+            apiRepository.addRolesToMembers(membersToRolesMap, () -> {
+                apiRepository.addRolesToMembers(judgesToRolesMap, callback);
+            });
+
     }
 
     private void moveBotToVoiceChannel(VoiceChannel channel) {
         if (channel != null) {
             Guild guild = channel.getGuild();
             AudioManager audioManager = guild.getAudioManager();
-            if (!audioManager.isConnected() && !audioManager.isConnected()) {
+            if (!audioManager.isConnected()) {
                 audioManager.openAudioConnection(channel);
 //                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " +
 //                channel.getName());
@@ -363,20 +374,20 @@ public class SubscribeTextChannel {
     }
 
     private void addDebaterToList(Member member) {
-        debatersList.add(member);
-        judgesList.remove(member);
+        subscribeDebatersList.add(member);
+        subscribeJudgesList.remove(member);
         update();
     }
 
     private void addJudgeToList(Member member) {
-        judgesList.add(member);
-        debatersList.remove(member);
+        subscribeJudgesList.add(member);
+        subscribeDebatersList.remove(member);
         update();
     }
 
     private void removeDebaterFromList(Member member) {
-        debatersList.remove(member);
-        if (timerForStartDebate != 0 && debatersList.size() < DEBATERS_LIMIT) {
+        subscribeDebatersList.remove(member);
+        if (timerForStartDebate != 0 && subscribeDebatersList.size() < DEBATERS_LIMIT) {
             cancelDebateStart();
         } else {
             update();
@@ -385,16 +396,15 @@ public class SubscribeTextChannel {
     }
 
     private void removeJudgeFromList(Member member) {
-        judgesList.remove(member);
+        subscribeJudgesList.remove(member);
         update();
     }
 
     private void cancelDebateStart() {
         if (debateStartTask != null && !debateStartTask.isDone()) {
             debateStartTask.cancel(true);
-            debateStartTask = null;  // Сброс ссылки после отмены
+            debateStartTask = null;
 
-            // Обновляем состояние, чтобы показать, что дебаты не начались
             timerForStartDebate = 0;
             isDebateStarted = false;
             update();
