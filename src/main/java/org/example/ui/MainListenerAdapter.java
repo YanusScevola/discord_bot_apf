@@ -11,22 +11,22 @@ import org.example.ui.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.ui.constants.VoiceChannelsID;
-import org.example.ui.channels.RatingTextChannel;
 import org.example.ui.channels.SubscribeTextChannel;
 import org.jetbrains.annotations.NotNull;
 
 public class MainListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
-    RatingTextChannel ratingTextChat;
+//    RatingTextChannel ratingTextChat;
     SubscribeTextChannel subscribeTextChat;
     StringRes stringsRes;
 
     public void onReady(@NotNull ReadyEvent event) {
-        stringsRes = StringRes.getInstance(StringRes.Language.RUSSIAN);
+        stringsRes = new StringRes("ru");
+
         apiRepository = new ApiRepository(event.getJDA());
         dbRepository = new DbRepository();
-        ratingTextChat = new RatingTextChannel(apiRepository, dbRepository);
+//        ratingTextChat = new RatingTextChannel(apiRepository, dbRepository);
         subscribeTextChat = new SubscribeTextChannel(apiRepository, dbRepository, stringsRes);
     }
 
@@ -40,7 +40,7 @@ public class MainListenerAdapter extends ListenerAdapter {
                 subscribeTextChat.onLeaveFromVoiceChannel(event);
             }
 
-            if (leftChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+            if (leftChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
                 if (subscribeTextChat != null && subscribeTextChat.debateController != null) {
                     subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
                 }
@@ -50,7 +50,7 @@ public class MainListenerAdapter extends ListenerAdapter {
         if (event.getChannelJoined() != null) {
             String joinedChannelName = event.getChannelJoined().getName();
 
-            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
                 subscribeTextChat.debateController.onJoinToVoiceChannel(event);
             }
 
@@ -71,16 +71,18 @@ public class MainListenerAdapter extends ListenerAdapter {
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         String channelName = event.getChannel().getName();
+        long channelId = event.getChannel().asTextChannel().getIdLong();
 
         if (event.getChannelType().equals(ChannelType.TEXT)) {
-            long channelId = event.getChannel().asTextChannel().getIdLong();
             if (channelId == TextChannelsID.SUBSCRIBE) {
                 subscribeTextChat.onButtonInteraction(event);
-            } else if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+            } else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
             }
         } else {
-            if (channelName.equals(stringsRes.get(StringRes.Key.TRIBUNE_CHANNEL_NAME))) {
+            if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+                subscribeTextChat.debateController.onButtonInteraction(event);
+            }else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
             }
         }

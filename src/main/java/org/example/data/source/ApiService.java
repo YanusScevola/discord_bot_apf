@@ -11,9 +11,12 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.ui.constants.ServerID;
+import org.example.utils.Utils;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.processing.Completion;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -209,13 +212,21 @@ public class ApiService {
     }
 
 
-    public void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
+    public void showEphemeralLoading(@NotNull ButtonInteractionEvent event, Consumer<InteractionHook> callback) {
         if (!event.isAcknowledged()) {
-            event.deferReply(true).queue(hook -> hook.sendMessage(message).queue(m -> m.delete().queueAfter(3, TimeUnit.SECONDS)));
+            event.deferReply(true).queue(
+                    hook -> {
+                        hook.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                        callback.accept(hook);
+                    },
+                    failure -> System.err.println("Не удалось отложить ответ: " + failure.getMessage())
+            );
         } else {
-//            Utils.sendLogError(apiRepository, "showEphemeralMessage", "Интеракция уже была обработана.");
+            System.err.println("Взаимодействие уже обработано");
         }
     }
+
+
 
     public void muteMembers(List<Member> members, boolean mute, Runnable callback) {
         try {
@@ -281,6 +292,27 @@ public class ApiService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    public void deleteVoiceChannels(List<VoiceChannel> channels, Runnable callback) {
+        CompletableFuture<Void>[] futures = new CompletableFuture[channels.size()];
+
+        for (int i = 0; i < channels.size(); i++) {
+            VoiceChannel channel = channels.get(i);
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            futures[i] = future;
+
+            channel.delete().queue(
+                    success -> future.complete(null),
+                    error -> {
+                        System.err.println("Ошибка при удалении канала: " + channel.getName() + "; причина: " + error.getMessage());
+                        future.completeExceptionally(error);
+                    }
+            );
+        }
+
+        CompletableFuture.allOf(futures).thenRun(callback);
     }
 
 

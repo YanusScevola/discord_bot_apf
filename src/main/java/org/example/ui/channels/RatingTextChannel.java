@@ -24,8 +24,12 @@ public class RatingTextChannel {
     public RatingTextChannel(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
-        if (channel == null) channel = apiRepository.getTextChannel(TextChannelsID.RATING);
+        channel = apiRepository.getTextChannel(TextChannelsID.RATING);
 
+        if (channel == null) {
+            System.err.println("Текстовый канал с ID " + TextChannelsID.RATING + " не найден.");
+            return;
+        }
 
         channel.getHistoryFromBeginning(1).queue(history -> {
             if (history.isEmpty()) {
@@ -34,8 +38,8 @@ public class RatingTextChannel {
         });
 
         updateDebatersDB();
-
     }
+
 
     private void displayDebatersList() {
         List<Debater> debaterList = dbRepository.getAllDebaters();

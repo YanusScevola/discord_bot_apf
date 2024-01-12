@@ -1,7 +1,6 @@
 package org.example.data.repository;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
@@ -10,12 +9,14 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.data.source.ApiService;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public class ApiRepository {
     private final ApiService apiService;
@@ -60,9 +61,11 @@ public class ApiRepository {
         apiService.muteMembers(members, mute, callback);
     }
 
-
-    public void showEphemeralMessage(@NotNull ButtonInteractionEvent event, String message) {
-        apiService.showEphemeralMessage(event, message);
+    public void showEphemeralLoading(@NotNull ButtonInteractionEvent event, Consumer<InteractionHook> callback) {
+        apiService.showEphemeralLoading(event, callback);
     }
 
+    public void deleteVoiceChannels(List<VoiceChannel> channels, Runnable callback) {
+        apiService.deleteVoiceChannels(channels, callback);
+    }
 }

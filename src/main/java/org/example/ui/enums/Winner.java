@@ -1,3 +1,3 @@
 package org.example.ui.enums;
 
-public enum Winner {GOVERNMENT, OPPOSITION}
+public enum Winner {GOVERNMENT, OPPOSITION, DRAW}
