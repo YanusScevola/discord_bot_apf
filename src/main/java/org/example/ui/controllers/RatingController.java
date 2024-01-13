@@ -1,4 +1,4 @@
-package org.example.ui.channels;
+package org.example.ui.controllers;
 
 import java.awt.*;
 import java.util.*;
@@ -15,13 +15,13 @@ import org.example.utils.DebaterMapper;
 
 
 
-public class RatingTextChannel {
+public class RatingController {
     static TextChannel channel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
 
 
-    public RatingTextChannel(ApiRepository apiRepository, DbRepository dbRepository) {
+    public RatingController(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
         channel = apiRepository.getTextChannel(TextChannelsID.RATING);

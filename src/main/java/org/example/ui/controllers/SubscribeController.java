@@ -1,4 +1,4 @@
-package org.example.ui.channels;
+package org.example.ui.controllers;
 
 import java.awt.*;
 import java.util.*;
@@ -29,32 +29,32 @@ import org.example.data.repository.DbRepository;
 import org.example.ui.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
-public class SubscribeTextChannel {
+public class SubscribeController {
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
-    private static final int DEBATERS_LIMIT = 1; //4
+    private static final int DEBATERS_LIMIT = 4; //4
     private static final int JUDGES_LIMIT = 1; //1
 
-    private static final int START_DEBATE_TIMER = 5; //60
+    private static final int START_DEBATE_TIMER = 60; //60
 
-    TextChannel channel;
-    ApiRepository apiRepository;
-    DbRepository dbRepository;
-    StringRes stringsRes;
+    private final TextChannel channel;
+    private final ApiRepository apiRepository;
+    private final DbRepository dbRepository;
+    private final StringRes stringsRes;
 
-    List<Long> debaterRoles = new ArrayList<>();
-    List<String> voiceChannelsNames = new ArrayList<>();
-    List<Member> subscribeDebatersList = new ArrayList<>();
-    List<Member> subscribeJudgesList = new ArrayList<>();
+    private List<Long> debaterRoles = new ArrayList<>();
+    private List<String> voiceChannelsNames = new ArrayList<>();
+    private final List<Member> subscribeDebatersList = new ArrayList<>();
+    private final List<Member> subscribeJudgesList = new ArrayList<>();
 
     private long timerForStartDebate = 0;
     private boolean isDebateStarted = false;
     public DebateController debateController;
     private ScheduledFuture<?> debateStartTask;
 
-    public SubscribeTextChannel(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes) {
+    public SubscribeController(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
         this.stringsRes = stringsRes;
@@ -99,22 +99,17 @@ public class SubscribeTextChannel {
         boolean isJudgeSubscriber = subscribeJudgesList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
         if (timerForStartDebate == 0) {
             if (!isDebateStarted) {
-                if (isDebaterSubscriber) {
-                    removeDebaterFromList(event.getMember());
-                }
-                if (isJudgeSubscriber && !isDebateStarted) {
-                    removeJudgeFromList(event.getMember());
-                }
+                if (isDebaterSubscriber) removeDebaterFromList(event.getMember(), () -> {
+                });
+                if (isJudgeSubscriber) removeJudgeFromList(event.getMember(), () -> {
+                });
             }
         } else {
-            if (isDebaterSubscriber) {
-                removeDebaterFromList(event.getMember());
-            }
-            if (isJudgeSubscriber && !isDebateStarted) {
-                removeJudgeFromList(event.getMember());
-            }
+            if (isDebaterSubscriber) removeDebaterFromList(event.getMember(), () -> {
+            });
+            if (isJudgeSubscriber) removeJudgeFromList(event.getMember(), () -> {
+            });
         }
-
     }
 
     private void showSubscribeMessage() {
@@ -144,19 +139,13 @@ public class SubscribeTextChannel {
                             if (subscribeDebatersList.contains(member)) {
                                 message.editOriginal(stringsRes.get(StringRes.Key.WARNING_ALREADY_DEBATER)).queue();
                             } else {
-                                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_DEBATER_ADDED)).queue((msg) -> {
-                                    addDebaterToList(member);
+                                addDebaterToList(member, () -> {
+                                    message.editOriginal(stringsRes.get(StringRes.Key.REMARK_DEBATER_ADDED)).queue();
                                 });
                             }
-                        } else {
-                            message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_DEBATER_ROLE)).queue();
-                        }
-                    } else {
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
-                    }
-                } else {
-                    message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
-                }
+                        } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_DEBATER_ROLE)).queue();
+                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
+                } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
             }
         });
     }
@@ -174,19 +163,13 @@ public class SubscribeTextChannel {
                             if (subscribeJudgesList.contains(member)) {
                                 message.editOriginal(stringsRes.get(StringRes.Key.WARNING_ALREADY_JUDGE)).queue();
                             } else {
-                                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_JUDGE_ADDED)).queue((msg) -> {
-                                    addJudgeToList(member);
+                                addJudgeToList(member, () -> {
+                                    message.editOriginal(stringsRes.get(StringRes.Key.REMARK_JUDGE_ADDED)).queue();
                                 });
                             }
-                        } else {
-                            message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_JUDGE_ROLE)).queue();
-                        }
-                    } else {
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
-                    }
-                } else {
-                    message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
-                }
+                        } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_JUDGE_ROLE)).queue();
+                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
+                } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_WAITING_ROOM)).queue();
             }
         });
 
@@ -201,30 +184,21 @@ public class SubscribeTextChannel {
 
                 if (!history.isEmpty()) {
                     if (debatersList != null && debatersList.contains(member.getAsMention())) {
-                        message.editOriginal(stringsRes.get(StringRes.Key.REMARK_DEBATER_REMOVED)).queue((msg) -> {
-                            removeDebaterFromList(member);
+                        removeDebaterFromList(member, () -> {
+                            message.editOriginal(stringsRes.get(StringRes.Key.REMARK_DEBATER_REMOVED)).queue();
                         });
                     } else if (judgeList != null && judgeList.contains(member.getAsMention())) {
-                        message.editOriginal(stringsRes.get(StringRes.Key.REMARK_JUDGE_REMOVED)).queue((msg) -> {
-                            removeJudgeFromList(member);
+                        removeJudgeFromList(member, () -> {
+                            message.editOriginal(stringsRes.get(StringRes.Key.REMARK_JUDGE_REMOVED)).queue();
                         });
-                    }else {
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
-                    }
+                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
+                } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
 
-//                    if (debatersList != null && debatersList.contains(member.getAsMention())) {
-//                        message.editOriginal(stringsRes.get(StringRes.Key.DEBATER_REMOVED)).queue((msg) -> {
-//                            removeDebaterFromList(member);
-//                        });
-//                    } else {
-//                        message.editOriginal(stringsRes.get(StringRes.Key.DEBATER_NOT_SUBSCRIBED)).queue();
-//                    }
-                }
             });
         });
     }
 
-    private void update() {
+    private void update(Runnable callback) {
         channel.getHistoryFromBeginning(1).queue(history -> {
             if (!history.isEmpty()) {
                 Message message = history.getRetrievedHistory().get(0);
@@ -248,7 +222,9 @@ public class SubscribeTextChannel {
                     startDebateTimer(message.getIdLong(), embedBuilder);
                 }
 
-                channel.editMessageEmbedsById(message.getId(), embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
+                channel.editMessageEmbedsById(message.getId(), embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue((msg) -> {
+                    if (callback != null) callback.run();
+                });
             }
         });
     }
@@ -283,7 +259,7 @@ public class SubscribeTextChannel {
 
                 timerForStartDebate = 0;
                 isDebateStarted = true;
-                debateController = new DebateController(apiRepository, dbRepository, stringsRes);
+                debateController = new DebateController(apiRepository, dbRepository, stringsRes, this);
 
                 setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> {
                     createVoiceChannels(voiceChannelsNames);
@@ -356,13 +332,10 @@ public class SubscribeTextChannel {
         for (int i = 0; i < DEBATERS_LIMIT; i++) {
             Member member = subscribeDebatersList.get(i);
             boolean hasDebaterRole = member.getRoles().stream().anyMatch(role -> debaterRoles.contains(role.getIdLong()));
-            if (!hasDebaterRole) {
-                membersToRolesMap.put(member, debaterRoles.get(i));
-            }
+            if (!hasDebaterRole) membersToRolesMap.put(member, debaterRoles.get(i));
         }
-        for (int i = 0; i < JUDGES_LIMIT; i++) {
-            judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
-        }
+
+        for (int i = 0; i < JUDGES_LIMIT; i++) judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
 
         apiRepository.addRolesToMembers(membersToRolesMap, () -> {
             apiRepository.addRolesToMembers(judgesToRolesMap, callback);
@@ -387,43 +360,50 @@ public class SubscribeTextChannel {
         }
     }
 
-    private void addDebaterToList(Member member) {
+    private void addDebaterToList(Member member, Runnable callback) {
         subscribeDebatersList.add(member);
         subscribeJudgesList.remove(member);
-        update();
+        update(callback);
     }
 
-    private void addJudgeToList(Member member) {
+    private void addJudgeToList(Member member, Runnable callback) {
         subscribeJudgesList.add(member);
         subscribeDebatersList.remove(member);
-        update();
+        update(callback);
     }
 
-    private void removeDebaterFromList(Member member) {
+    private void removeDebaterFromList(Member member, Runnable callback) {
         subscribeDebatersList.remove(member);
         if (timerForStartDebate != 0 && subscribeDebatersList.size() < DEBATERS_LIMIT) {
-            cancelDebateStart();
+            cancelDebateStart(callback);
         } else {
-            update();
+            update(callback);
         }
 
     }
 
-    private void removeJudgeFromList(Member member) {
+    private void removeJudgeFromList(Member member, Runnable callback) {
         subscribeJudgesList.remove(member);
-        update();
+        update(callback);
     }
 
-    private void cancelDebateStart() {
+    private void cancelDebateStart(Runnable callback) {
         if (debateStartTask != null && !debateStartTask.isDone()) {
             debateStartTask.cancel(true);
             debateStartTask = null;
 
             timerForStartDebate = 0;
             isDebateStarted = false;
-            update();
+            update(callback);
         }
     }
 
-
+    public void restartDebate() {
+        cancelDebateStart(() -> {
+            subscribeDebatersList.clear();
+            subscribeJudgesList.clear();
+            update(() -> {
+            });
+        });
+    }
 }

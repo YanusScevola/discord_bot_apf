@@ -52,5 +52,7 @@
   "remark_ask_government_member": "Задайте вопрос члену правительства.",
   "remark_ask_opposition_member": "Задайте вопрос члену оппозиции.",
   "remark_speech_end": "Вы закончили речь.",
+  "remark_vote_government": "Вы проголосовали за \"Правительство\".",
+  "remark_vote_opposition": "Вы проголосовали за \"Оппозицию\"."
 
 }

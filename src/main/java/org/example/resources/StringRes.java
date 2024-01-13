@@ -51,6 +51,11 @@ public class StringRes {
     }
 
     public enum Key {
+        CHANNEL_TRIBUNE("channel_tribune"),
+        CHANNEL_JUDGE("channel_judge"),
+        CHANNEL_GOVERNMENT("channel_government"),
+        CHANNEL_OPPOSITION("channel_opposition"),
+
         TITLE_DEBATER_LIST("title_debater_list"),
         TITLE_JUDGES_LIST("title_judges_list"),
         TITLE_TIMER("title_timer"),
@@ -79,11 +84,6 @@ public class StringRes {
         BUTTON_VOTE_GOVERNMENT("button_vote_government"),
         BUTTON_VOTE_OPPOSITION("button_vote_opposition"),
 
-        CHANNEL_TRIBUNE("channel_tribune"),
-        CHANNEL_JUDGE("channel_judge"),
-        CHANNEL_GOVERNMENT("channel_government"),
-        CHANNEL_OPPOSITION("channel_opposition"),
-
         WARNING_NEED_WAITING_ROOM("warning_need_waiting_room"),
         WARNING_NEED_DEBATER_ROLE("warning_need_debater_role"),
         WARNING_NEED_JUDGE_ROLE("warning_need_judge_role"),
@@ -96,13 +96,15 @@ public class StringRes {
         WARNING_ALREADY_VOTED("warning_already_voted"),
         WARNING_NOT_ASK_OWN_TEAM("warning_not_ask_own_team"),
 
-        REMARK_ASK_OPPONENT_MEMBER("remark_ask_opponent_member"),
         REMARK_DEBATER_ADDED("remark_debater_added"),
         REMARK_JUDGE_ADDED("remark_judge_added"),
         REMARK_DEBATER_REMOVED("remark_debater_removed"),
         REMARK_JUDGE_REMOVED("remark_judge_removed"),
         REMARK_ASK_GOVERNMENT_MEMBER("remark_ask_government_member"),
-        REMARK_SPEECH_END("remark_speech_end");
+        REMARK_ASK_OPPOSITION_MEMBER("remark_ask_opposition_member"),
+        REMARK_SPEECH_END("remark_speech_end"),
+        REMARK_VOTE_GOVERNMENT("remark_vote_government"),
+        REMARK_VOTE_OPPOSITION("remark_vote_opposition");
 
         private final String key;
         Key(String key) {
