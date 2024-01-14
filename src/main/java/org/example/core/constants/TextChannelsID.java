@@ -1,4 +1,4 @@
-package org.example.ui.constants;
+package org.example.core.constants;
 
 public class TextChannelsID {
     public static final long SUBSCRIBE = 1190395816163168387L;

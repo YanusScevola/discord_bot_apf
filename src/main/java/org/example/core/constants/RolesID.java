@@ -1,4 +1,4 @@
-package org.example.ui.constants;
+package org.example.core.constants;
 
 public class RolesID {
     public static final long DEBATER_APF = 1192220689634168912L;

@@ -1,4 +1,4 @@
-package org.example.ui;
+package org.example.core;
 
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
@@ -7,12 +7,12 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.resources.StringRes;
-import org.example.ui.constants.TextChannelsID;
+import org.example.core.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
-import org.example.ui.constants.VoiceChannelsID;
-import org.example.ui.controllers.RatingController;
-import org.example.ui.controllers.SubscribeController;
+import org.example.core.constants.VoiceChannelsID;
+import org.example.core.controllers.RatingController;
+import org.example.core.controllers.SubscribeController;
 import org.jetbrains.annotations.NotNull;
 
 public class MainListenerAdapter extends ListenerAdapter {

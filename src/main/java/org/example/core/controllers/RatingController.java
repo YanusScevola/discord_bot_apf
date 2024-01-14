@@ -1,4 +1,4 @@
-package org.example.ui.controllers;
+package org.example.core.controllers;
 
 import java.awt.*;
 import java.util.*;
@@ -7,17 +7,15 @@ import java.util.List;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import org.example.ui.constants.TextChannelsID;
-import org.example.ui.constants.RolesID;
-import org.example.ui.models.Debater;
+import org.example.core.constants.TextChannelsID;
+import org.example.core.constants.RolesID;
+import org.example.core.models.Debater;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.utils.DebaterMapper;
 
-
-
 public class RatingController {
-    static TextChannel channel;
+    TextChannel channel;
     ApiRepository apiRepository;
     DbRepository dbRepository;
 
@@ -25,7 +23,7 @@ public class RatingController {
     public RatingController(ApiRepository apiRepository, DbRepository dbRepository) {
         this.apiRepository = apiRepository;
         this.dbRepository = dbRepository;
-        channel = apiRepository.getTextChannel(TextChannelsID.RATING);
+        this.channel = apiRepository.getTextChannel(TextChannelsID.RATING);
 
         displayDebatersList();
         updateDebatersDB();
@@ -56,10 +54,7 @@ public class RatingController {
 
         int lineNumber = 1;
         for (Debater debater : filteredMembers) {
-            if (lineNumber > 20) {
-                break;
-            }
-
+            if (lineNumber > 20) break;
             if (debater != null) {
                 int value =  debater.getWinner();
                 String medal = switch (lineNumber) {
@@ -79,7 +74,6 @@ public class RatingController {
 
         String limitedString = clickableNicknames.toString();
         limitedString = limitedString.substring(0, Math.min(limitedString.length(), 2000));
-
         return limitedString;
     }
 

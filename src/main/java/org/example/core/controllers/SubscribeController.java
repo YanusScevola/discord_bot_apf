@@ -1,4 +1,4 @@
-package org.example.ui.controllers;
+package org.example.core.controllers;
 
 import java.awt.*;
 import java.util.*;
@@ -21,12 +21,12 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.managers.AudioManager;
 
 import org.example.resources.StringRes;
-import org.example.ui.constants.CategoriesID;
-import org.example.ui.constants.RolesID;
-import org.example.ui.constants.TextChannelsID;
+import org.example.core.constants.CategoriesID;
+import org.example.core.constants.RolesID;
+import org.example.core.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
-import org.example.ui.constants.VoiceChannelsID;
+import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {

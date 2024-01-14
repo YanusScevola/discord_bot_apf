@@ -1,7 +1,7 @@
 package org.example.data.repository;
 
-import org.example.ui.models.Debate;
-import org.example.ui.models.Debater;
+import org.example.core.models.Debate;
+import org.example.core.models.Debater;
 import org.example.data.source.Database;
 
 import java.util.ArrayList;

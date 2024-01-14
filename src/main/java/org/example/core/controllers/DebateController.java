@@ -1,4 +1,4 @@
-package org.example.ui.controllers;
+package org.example.core.controllers;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -20,12 +20,12 @@ import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.example.audio.lavaplayer.PlayerManager;
-import org.example.ui.enums.Stage;
+import org.example.core.enums.Stage;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.resources.StringRes;
-import org.example.ui.constants.RolesID;
-import org.example.ui.enums.Winner;
+import org.example.core.constants.RolesID;
+import org.example.core.enums.Winner;
 import org.example.utils.StageTimer;
 import org.jetbrains.annotations.NotNull;
 

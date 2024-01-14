@@ -1,6 +1,6 @@
 package org.example.data.source;
 
-import org.example.ui.models.Debater;
+import org.example.core.models.Debater;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

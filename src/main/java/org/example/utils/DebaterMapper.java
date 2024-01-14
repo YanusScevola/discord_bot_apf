@@ -1,7 +1,7 @@
 package org.example.utils;
 
 import net.dv8tion.jda.api.entities.Member;
-import org.example.ui.models.Debater;
+import org.example.core.models.Debater;
 
 import java.util.List;
 import java.util.stream.Collectors;

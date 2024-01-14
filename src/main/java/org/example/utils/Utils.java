@@ -3,7 +3,7 @@ package org.example.utils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.example.data.repository.ApiRepository;
-import org.example.ui.constants.TextChannelsID;
+import org.example.core.constants.TextChannelsID;
 
 import java.awt.*;
 import java.util.Timer;

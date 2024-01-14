@@ -1,19 +1,22 @@
-package org.example;
+package org.example.core;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.example.ui.MainListenerAdapter;
+import org.example.data.source.Database;
+
+import java.util.Properties;
 
 public class Main {
     public static void main(String[] args) {
         JDA jda;
-        String token = "MTE5MDM5NDQ1NDg0NzI3OTE4NA.GZfcTy.2cuQfYZNIcTs457wAnGBN6cI6x1IiwUPP30IJ0";
 
         try {
-//            Database.getInstance();
+            String token = new Properties().getProperty("token");
+
+            Database.getInstance();
 
             jda = JDABuilder.createDefault(token)
                     .setActivity(Activity.playing("Дебаты"))

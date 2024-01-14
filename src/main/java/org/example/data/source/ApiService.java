@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import org.example.ui.constants.ServerID;
+import org.example.core.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
