@@ -12,15 +12,12 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.ui.constants.ServerID;
-import org.example.utils.Utils;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.processing.Completion;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -295,7 +292,7 @@ public class ApiService {
 
 
     public void deleteVoiceChannels(List<VoiceChannel> channels, Runnable callback) {
-        CompletableFuture<Void>[] futures = new CompletableFuture[channels.size()];
+        CompletableFuture[] futures = new CompletableFuture[channels.size()];
 
         for (int i = 0; i < channels.size(); i++) {
             VoiceChannel channel = channels.get(i);

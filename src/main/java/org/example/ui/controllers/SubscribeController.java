@@ -34,10 +34,10 @@ public class SubscribeController {
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
-    private static final int DEBATERS_LIMIT = 4; //4
+    private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
 
-    private static final int START_DEBATE_TIMER = 60; //60
+    private static final int START_DEBATE_TIMER = 6; //60
 
     private final TextChannel channel;
     private final ApiRepository apiRepository;

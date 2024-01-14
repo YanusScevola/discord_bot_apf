@@ -1,7 +1,6 @@
 package org.example.data.source;
 
 import org.example.ui.models.Debater;
-import org.example.data.source.models.DebateSourceModel;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -227,43 +226,6 @@ public class Database {
             }
         }
         return debaters;
-    }
-
-    public List<DebateSourceModel> getAllDebates() {
-        Statement stmt = null;
-        List<DebateSourceModel> debates = new ArrayList<>();
-        try {
-            stmt = connection.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT * FROM DEBATE;");
-
-            while (rs.next()) {
-                String id = rs.getString("ID");
-                String thesis = rs.getString("THESIS");
-                String dateString = String.valueOf(rs.getDate("DATE"));
-                String governmentTeam = rs.getString("GOVERNMENT_TEAM");
-                String oppositionTeam = rs.getString("OPPOSITION_TEAM");
-                int winner = rs.getInt("WINNER_TEAM");
-
-                DebateSourceModel debate = new DebateSourceModel();
-                debate.setId(id);
-                debate.setThesis(thesis);
-                debate.setDateString(dateString);
-                debate.setGovernmentTeamId(governmentTeam);
-                debate.setOppositionTeamId(oppositionTeam);
-                debate.setWinner(winner);
-
-                debates.add(debate);
-            }
-        } catch (SQLException e) {
-            logger.debug("Ошибка чтения дебатов", e);
-        } finally {
-            try {
-                if (stmt != null) stmt.close();
-            } catch (SQLException e) {
-                logger.debug("Ошибка закрытия statement", e);
-            }
-        }
-        return debates;
     }
 
 

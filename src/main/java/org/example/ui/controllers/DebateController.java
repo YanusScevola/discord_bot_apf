@@ -30,18 +30,18 @@ import org.example.utils.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {
-    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
-    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
+    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
+    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
 
-    private static final int DEBATERS_PREPARATION_TIME = 15*60; // 15
-    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7*60; // 7
-    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8*60; // 8
-    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8*60; // 8
-    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8*60; // 8
+    private static final int DEBATERS_PREPARATION_TIME = 15; // 15
+    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7; // 7
+    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8; // 8
+    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8; // 8
+    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8; // 8
     private static final int OPPONENT_ASK_TIME = 15; // 15
-    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4*60; // 4
-    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5*60; // 5
-    private static final int JUDGES_PREPARATION_TIME = 15*60; // 15
+    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4; // 4
+    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5; // 5
+    private static final int JUDGES_PREPARATION_TIME = 15; // 15
 
     private static final String END_DEBATE_BTN_ID = "end_debate";
     private static final String END_SPEECH_BTN_ID = "end_speech";
@@ -145,23 +145,15 @@ public class DebateController {
                         message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_GOVERNMENT_MEMBER)).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
-                    } else {
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
-                    }
+                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
                 } else if (currentStage == Stage.MEMBER_OPPOSITION_SPEECH) {
                     if (governmentDebaters.contains(event.getMember())) {
                         message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_OPPOSITION_MEMBER)).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
-                    } else {
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
-                    }
-                } else {
-                    message.editOriginal("Сейчас нельзя задавать вопросы").queue();
-                }
-            } else {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_DEBATER)).queue();
-            }
+                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
+                } else message.editOriginal("Сейчас нельзя задавать вопросы").queue();
+            } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_DEBATER)).queue();
         });
     }
 
@@ -275,7 +267,7 @@ public class DebateController {
             isDebateStarted = true;
             allDebaters.addAll(governmentDebaters);
             allDebaters.addAll(oppositionDebaters);
-            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
+            startStage(event.getMember().getGuild(), Stage.HEAD_GOVERNMENT_LAST_SPEECH);
         }
     }
 
