@@ -59,6 +59,10 @@ public class RatingController {
 
         int lineNumber = 1;
         for (Debater debater : filteredMembers) {
+            if (lineNumber > 20) {
+                break;
+            }
+
             if (debater != null) {
                 int value =  debater.getWinner();
                 String medal = switch (lineNumber) {
@@ -81,6 +85,7 @@ public class RatingController {
 
         return limitedString;
     }
+
 
     private void updateDebatersDB() {
         apiRepository.getMembersByRole(RolesID.DEBATER_APF).thenAccept(members -> {

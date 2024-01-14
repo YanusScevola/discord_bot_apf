@@ -74,15 +74,7 @@ public class SubscribeController {
                 stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION)
         );
 
-        this.channel.getHistoryFromBeginning(1).queue(history -> {
-            if (history.isEmpty()) {
-                showSubscribeMessage();
-            } else {
-                List<Message> messages = history.getRetrievedHistory();
-                this.channel.purgeMessages(messages);
-                showSubscribeMessage();
-            }
-        });
+        showSubscribeMessage();
     }
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
@@ -123,8 +115,23 @@ public class SubscribeController {
         Button judgeButton = Button.primary(JUDGE_SUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_SUBSCRIBE_JUDGE));
         Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_UNSUBSCRIBE));
 
-        channel.sendMessageEmbeds(embedBuilder.build()).setActionRow(debaterButton, judgeButton, unsubscribeButton).queue();
+        // Получение истории сообщений в канале
+        channel.getHistoryFromBeginning(1).queue(history -> {
+            if (!history.getRetrievedHistory().isEmpty()) {
+                // Если в истории есть сообщения, обновляем первое сообщение
+                Message existingMessage = history.getRetrievedHistory().get(0);
+                channel.editMessageEmbedsById(existingMessage.getId(), embedBuilder.build())
+                        .setActionRow(debaterButton, judgeButton, unsubscribeButton)
+                        .queue();
+            } else {
+                // Если в истории нет сообщений, отправляем новое
+                channel.sendMessageEmbeds(embedBuilder.build())
+                        .setActionRow(debaterButton, judgeButton, unsubscribeButton)
+                        .queue();
+            }
+        });
     }
+
 
     private void onClickDebaterSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         apiRepository.showEphemeralLoading(event, (message) -> {
@@ -193,7 +200,6 @@ public class SubscribeController {
                         });
                     } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
                 } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
-
             });
         });
     }

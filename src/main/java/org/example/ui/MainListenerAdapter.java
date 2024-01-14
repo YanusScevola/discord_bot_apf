@@ -11,13 +11,14 @@ import org.example.ui.constants.TextChannelsID;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.ui.constants.VoiceChannelsID;
+import org.example.ui.controllers.RatingController;
 import org.example.ui.controllers.SubscribeController;
 import org.jetbrains.annotations.NotNull;
 
 public class MainListenerAdapter extends ListenerAdapter {
     ApiRepository apiRepository;
     DbRepository dbRepository;
-//    RatingTextChannel ratingTextChat;
+    RatingController ratingTextChat;
     SubscribeController subscribeTextChat;
     StringRes stringsRes;
 
@@ -26,7 +27,7 @@ public class MainListenerAdapter extends ListenerAdapter {
 
         apiRepository = new ApiRepository(event.getJDA());
         dbRepository = new DbRepository();
-//        ratingTextChat = new RatingTextChannel(apiRepository, dbRepository);
+        ratingTextChat = new RatingController(apiRepository, dbRepository);
         subscribeTextChat = new SubscribeController(apiRepository, dbRepository, stringsRes);
     }
 
