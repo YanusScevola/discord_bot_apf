@@ -12,8 +12,8 @@
     <loaded-nodes />
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
-    <connection id="77e1ecd8-ffd6-420b-bac7-f0a29e078387">
-      <console name="Connection" type="STANDARD" schema="s5068_debate_club" session="Main" />
+    <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a">
+      <console name="Connection 1" type="STANDARD" schema="s5068_debate_club" session="Main" />
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
@@ -23,15 +23,22 @@
     <open-files />
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
-    <connection id="77e1ecd8-ffd6-420b-bac7-f0a29e078387" />
+    <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" />
   </component>
   <component name="DBNavigator.Project.DatasetFilterManager">
-    <filter-actions connection-id="77e1ecd8-ffd6-420b-bac7-f0a29e078387" dataset="s5068_debate_club.DEBATE" active-filter-id="EMPTY_FILTER" />
-    <filter-actions connection-id="77e1ecd8-ffd6-420b-bac7-f0a29e078387" dataset="s5068_debate_club.TEAMS" active-filter-id="EMPTY_FILTER" />
-    <filter-actions connection-id="77e1ecd8-ffd6-420b-bac7-f0a29e078387" dataset="s5068_debate_club.DEBATERS" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATE" active-filter-id="" />
+    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATERS" active-filter-id="" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />
+  </component>
+  <component name="DBNavigator.Project.MethodExecutionManager">
+    <method-browser />
+    <execution-history>
+      <group-entries value="true" />
+      <execution-inputs />
+    </execution-history>
+    <argument-values-cache />
   </component>
   <component name="DBNavigator.Project.ObjectQuickFilterManager">
     <last-used-operator value="EQUAL" />
@@ -47,9 +54,9 @@
   </component>
   <component name="DBNavigator.Project.Settings">
     <connections>
-      <connection id="77e1ecd8-ffd6-420b-bac7-f0a29e078387" active="true" signed="true">
+      <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" active="true" signed="true">
         <database>
-          <name value="Connection" />
+          <name value="Connection 1" />
           <description value="" />
           <database-type value="MYSQL" />
           <config-type value="BASIC" />

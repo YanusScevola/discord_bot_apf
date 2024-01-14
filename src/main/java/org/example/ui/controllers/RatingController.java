@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.List;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.example.ui.constants.TextChannelsID;
 import org.example.ui.constants.RolesID;
@@ -26,20 +27,9 @@ public class RatingController {
         this.dbRepository = dbRepository;
         channel = apiRepository.getTextChannel(TextChannelsID.RATING);
 
-        if (channel == null) {
-            System.err.println("Текстовый канал с ID " + TextChannelsID.RATING + " не найден.");
-            return;
-        }
-
-        channel.getHistoryFromBeginning(1).queue(history -> {
-            if (history.isEmpty()) {
-                displayDebatersList();
-            }
-        });
-
+        displayDebatersList();
         updateDebatersDB();
     }
-
 
     private void displayDebatersList() {
         List<Debater> debaterList = dbRepository.getAllDebaters();
@@ -51,7 +41,14 @@ public class RatingController {
         eb.setColor(new Color(0x2F51B9));
         eb.setDescription(debatersText);
 
-        channel.sendMessageEmbeds(eb.build()).queue();
+        channel.getHistoryFromBeginning(1).queue(history -> {
+            if (!history.getRetrievedHistory().isEmpty()) {
+                Message existingMessage = history.getRetrievedHistory().get(0);
+                channel.editMessageEmbedsById(existingMessage.getId(), eb.build()).queue();
+            } else {
+                channel.sendMessageEmbeds(eb.build()).queue();
+            }
+        });
     }
 
     public String getListDebatersText(List<Debater> filteredMembers) {
@@ -92,7 +89,6 @@ public class RatingController {
             List<Debater> debaterList = new ArrayList<>(DebaterMapper.mapFromMembers(members));
             dbRepository.insertDebaters(debaterList);
         });
-
     }
 
 

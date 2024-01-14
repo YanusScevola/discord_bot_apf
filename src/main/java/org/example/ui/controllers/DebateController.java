@@ -159,27 +159,15 @@ public class DebateController {
 
     private void onClickEndSpeechBtn(ButtonInteractionEvent event) {
         apiRepository.showEphemeralLoading(event, (message) -> {
-            if (currentStage == Stage.HEAD_GOVERNMENT_FIRST_SPEECH && headGovernment.equals(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
-                    skipTimer();
-                });
-            } else if (currentStage == Stage.HEAD_OPPOSITION_FIRST_SPEECH && headOpposition.equals(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
-                    skipTimer();
-                });
-            } else if (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH && memberGovernment.equals(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
-                    skipTimer();
-                });
-            } else if (currentStage == Stage.MEMBER_OPPOSITION_SPEECH && memberOpposition.equals(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
-                    skipTimer();
-                });
-            } else if (currentStage == Stage.HEAD_GOVERNMENT_LAST_SPEECH && headGovernment.equals(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
-                    skipTimer();
-                });
-            } else if (currentStage == Stage.HEAD_OPPOSITION_LAST_SPEECH && headOpposition.equals(event.getMember())) {
+            Member member = event.getMember();
+            boolean canEndSpeech = (currentStage == Stage.HEAD_GOVERNMENT_FIRST_SPEECH && headGovernment.equals(member)) ||
+                    (currentStage == Stage.HEAD_OPPOSITION_FIRST_SPEECH && headOpposition.equals(member)) ||
+                    (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH && memberGovernment.equals(member)) ||
+                    (currentStage == Stage.MEMBER_OPPOSITION_SPEECH && memberOpposition.equals(member)) ||
+                    (currentStage == Stage.HEAD_GOVERNMENT_LAST_SPEECH && headGovernment.equals(member)) ||
+                    (currentStage == Stage.HEAD_OPPOSITION_LAST_SPEECH && headOpposition.equals(member));
+
+            if (canEndSpeech) {
                 message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
                     skipTimer();
                 });
@@ -187,7 +175,6 @@ public class DebateController {
                 message.editOriginal("Вы не можете закончить чужую речь").queue();
             }
         });
-
     }
 
     private void onClickEndDebateBtn(ButtonInteractionEvent event) {
