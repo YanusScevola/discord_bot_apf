@@ -1,8 +1,6 @@
 package org.example.core.controllers;
 
 import java.awt.Color;
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -10,19 +8,16 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.AudioManager;
-import net.dv8tion.jda.api.utils.FileUpload;
 import org.example.core.enums.Stage;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
 import org.example.player.PlayerManager;
-import org.example.recorder.MyAudioReceiveHandler;
 import org.example.resources.StringRes;
 import org.example.core.constants.RolesID;
 import org.example.core.enums.Winner;
@@ -51,7 +46,6 @@ public class DebateController {
 
     private final Button askQuestionButton;
     private final Button endSpeechButton;
-    private final Button endDebateButton;
     private final Button voteGovernmentButton;
     private final Button voteOppositionButton;
 
@@ -87,7 +81,6 @@ public class DebateController {
     private int votesForOpposition = 0;
     private Message votingMessage;
     private Winner winner = Winner.GOVERNMENT;
-    MyAudioReceiveHandler audioHandler = new MyAudioReceiveHandler();
 
 
     public DebateController(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes, SubscribeController subscribeController) {
@@ -98,7 +91,6 @@ public class DebateController {
 
         askQuestionButton = Button.success(ASK_QUESTION_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_ASK_QUESTION));
         endSpeechButton = Button.primary(END_SPEECH_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_END_SPEECH));
-        endDebateButton = Button.danger(END_DEBATE_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_END_DEBATE));
         voteGovernmentButton = Button.primary(VOTE_GOVERNMENT_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_VOTE_GOVERNMENT));
         voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_VOTE_OPPOSITION));
     }
@@ -262,30 +254,7 @@ public class DebateController {
             isDebateStarted = true;
             allDebaters.addAll(governmentDebaters);
             allDebaters.addAll(oppositionDebaters);
-//            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
-
-            try {
-                AudioManager audioManager = event.getGuild().getAudioManager();
-                MyAudioReceiveHandler audioReceiveHandler = new MyAudioReceiveHandler();
-                audioManager.setReceivingHandler(audioReceiveHandler);
-                audioManager.openAudioConnection(tribuneVoiceChannel);
-//                audioReceiveHandler.startRecording();
-                System.out.println("Запись начата");
-                new Timer().schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        try {
-                            System.out.println("Запись завершена");
-//                            audioReceiveHandler.stopRecording("/Users/vasagrigoras/IdeaProjects/DiscordBotAPF/audio.wav");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }, 10000);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
+            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
 
         }
     }
@@ -302,20 +271,6 @@ public class DebateController {
 //        }
 //    }
 //
-//
-    public void sendRecording(Guild guild, File file, String channelId) {
-        if (file != null) {
-            TextChannel channel = guild.getTextChannelById(channelId);
-            if (channel != null) {
-                FileUpload f = FileUpload.fromData(file, file.getName());
-                channel.sendFiles(f).queue();
-            } else {
-                System.out.println("Текстовый канал не найден.");
-            }
-        }
-    }
-
-
     private void startStage(Guild guild, @NotNull Stage stage) {
         switch (stage) {
             case START_DEBATE -> startGreetingsStage(guild);
@@ -341,7 +296,7 @@ public class DebateController {
         currentStage = Stage.DEBATERS_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_DEBATER_PREPARATION);
-        List<Button> buttons = List.of(endDebateButton);
+        List<Button> buttons = List.of();
 
         playAudio(guild, "Подготовка дебатеров.mp3", () -> {
             sendTheme("ЭП хочет отменить традиционное образование в пользу индивидуализированных образовательных траекторий.");
@@ -368,7 +323,7 @@ public class DebateController {
         currentStage = Stage.HEAD_GOVERNMENT_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_FIRST_SPEECH);
-        List<Button> buttons = Arrays.asList(endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(endSpeechButton);
 
         playAudio(guild, "Вступ глава правительства.mp3", () -> {
             enableMicrophone(headGovernment, () -> {
@@ -387,7 +342,7 @@ public class DebateController {
         currentStage = Stage.HEAD_OPPOSITION_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_FIRST_SPEECH);
-        List<Button> buttons = Arrays.asList(endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(endSpeechButton);
 
         playAudio(guild, "Вступ глава оппозиции.mp3", () -> {
             enableMicrophone(headOpposition, () -> {
@@ -406,7 +361,7 @@ public class DebateController {
         currentStage = Stage.MEMBER_GOVERNMENT_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_GOVERNMENT_SPEECH);
-        List<Button> buttons = Arrays.asList(askQuestionButton, endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
 
         playAudio(guild, "Член правительства.mp3", () -> {
             enableMicrophone(memberGovernment, () -> {
@@ -425,7 +380,7 @@ public class DebateController {
         currentStage = Stage.MEMBER_OPPOSITION_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_OPPOSITION_SPEECH);
-        List<Button> buttons = Arrays.asList(askQuestionButton, endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
 
         playAudio(guild, "Член оппозиции.mp3", () -> {
             enableMicrophone(memberOpposition, () -> {
@@ -461,7 +416,7 @@ public class DebateController {
         currentStage = Stage.HEAD_OPPOSITION_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_LAST_SPEECH);
-        List<Button> buttons = Arrays.asList(endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(endSpeechButton);
 
         playAudio(guild, "Закл глава оппозиции.mp3", () -> {
             enableMicrophone(headOpposition, () -> {
@@ -480,7 +435,7 @@ public class DebateController {
         currentStage = Stage.HEAD_GOVERNMENT_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_LAST_SPEECH);
-        List<Button> buttons = Arrays.asList(endSpeechButton, endDebateButton);
+        List<Button> buttons = List.of(endSpeechButton);
 
         playAudio(guild, "Закл глава правительства.mp3", () -> {
             enableMicrophone(headGovernment, () -> {
