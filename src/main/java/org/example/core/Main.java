@@ -14,7 +14,8 @@ public class Main {
         JDA jda;
 
         try {
-            String token = new Properties().getProperty("token");
+//            String token = new Properties().getProperty("token");
+            String token = "MTE5MDM5NDQ1NDg0NzI3OTE4NA.GlZsAO.a-Iqst8WZQBYTlEckvSAJqYW5enveezx0Cnlg0";
 
             Database.getInstance();
 

@@ -1,4 +1,4 @@
-package org.example.audio.lavaplayer;
+package org.example.player;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
@@ -7,7 +7,6 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.function.Consumer;
 
 public class TrackScheduler extends AudioEventAdapter {
 

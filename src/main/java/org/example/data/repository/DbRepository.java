@@ -1,7 +1,7 @@
 package org.example.data.repository;
 
-import org.example.core.models.Debate;
-import org.example.core.models.Debater;
+import org.example.core.models.DebateAPF;
+import org.example.core.models.DebaterAPF;
 import org.example.data.source.Database;
 
 import java.util.ArrayList;
@@ -17,23 +17,23 @@ public class DbRepository {
     }
 
 
-    public List<Debater> getAllDebaters() {
+    public List<DebaterAPF> getAllDebaters() {
         return dataBase.getAllDebaters();
     }
 
-    public List<Debate> getAllDebates() {
+    public List<DebateAPF> getAllDebates() {
         return new ArrayList<>();
     }
 
-    public void insertDebater(Debater debater) {
+    public void insertDebater(DebaterAPF debaterAPF) {
         Executors.newSingleThreadExecutor().submit(() -> {
-            dataBase.insertDebater(debater);
+            dataBase.insertDebater(debaterAPF);
         });
     }
 
-    public void insertDebaters(List<Debater> debater) {
+    public void insertDebaters(List<DebaterAPF> debaterAPF) {
         Executors.newSingleThreadExecutor().submit(() -> {
-            dataBase.insertDebaters(debater);
+            dataBase.insertDebaters(debaterAPF);
         });
     }
 

@@ -1,28 +1,28 @@
 package org.example.core.controllers;
 
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.AudioManager;
-import org.example.audio.lavaplayer.PlayerManager;
+import net.dv8tion.jda.api.utils.FileUpload;
 import org.example.core.enums.Stage;
 import org.example.data.repository.ApiRepository;
 import org.example.data.repository.DbRepository;
+import org.example.player.PlayerManager;
+import org.example.recorder.MyAudioReceiveHandler;
 import org.example.resources.StringRes;
 import org.example.core.constants.RolesID;
 import org.example.core.enums.Winner;
@@ -86,7 +86,9 @@ public class DebateController {
     private int votesForGovernment = 0;
     private int votesForOpposition = 0;
     private Message votingMessage;
-    private Winner winner = Winner.DRAW;
+    private Winner winner = Winner.GOVERNMENT;
+    MyAudioReceiveHandler audioHandler = new MyAudioReceiveHandler();
+
 
     public DebateController(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes, SubscribeController subscribeController) {
         this.apiRepository = apiRepository;
@@ -130,10 +132,14 @@ public class DebateController {
 
     public void addChannel(VoiceChannel channel) {
         String voiceChannelName = channel.getName();
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) tribuneVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE))) judgesVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_GOVERNMENT))) governmentVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION))) oppositionVoiceChannel = channel;
+        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE)))
+            tribuneVoiceChannel = channel;
+        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE)))
+            judgesVoiceChannel = channel;
+        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_GOVERNMENT)))
+            governmentVoiceChannel = channel;
+        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION)))
+            oppositionVoiceChannel = channel;
         allVoiceChannels.add(channel);
     }
 
@@ -145,13 +151,15 @@ public class DebateController {
                         message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_GOVERNMENT_MEMBER)).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
-                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
+                    } else
+                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
                 } else if (currentStage == Stage.MEMBER_OPPOSITION_SPEECH) {
                     if (governmentDebaters.contains(event.getMember())) {
                         message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_OPPOSITION_MEMBER)).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
-                    } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
+                    } else
+                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
                 } else message.editOriginal("Сейчас нельзя задавать вопросы").queue();
             } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_DEBATER)).queue();
         });
@@ -254,9 +262,59 @@ public class DebateController {
             isDebateStarted = true;
             allDebaters.addAll(governmentDebaters);
             allDebaters.addAll(oppositionDebaters);
-            startStage(event.getMember().getGuild(), Stage.HEAD_GOVERNMENT_LAST_SPEECH);
+//            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
+
+            try {
+                AudioManager audioManager = event.getGuild().getAudioManager();
+                MyAudioReceiveHandler audioReceiveHandler = new MyAudioReceiveHandler();
+                audioManager.setReceivingHandler(audioReceiveHandler);
+                audioManager.openAudioConnection(tribuneVoiceChannel);
+//                audioReceiveHandler.startRecording();
+                System.out.println("Запись начата");
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        try {
+                            System.out.println("Запись завершена");
+//                            audioReceiveHandler.stopRecording("/Users/vasagrigoras/IdeaProjects/DiscordBotAPF/audio.wav");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, 10000);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
         }
     }
+//
+//    public File getRecordingFile() {
+//        String filePath = "audio.pcm";
+//
+//        File recordingFile = new File(filePath);
+//        if (recordingFile.exists()) {
+//            return recordingFile;
+//        } else {
+//            System.out.println("Файл записи не найден.");
+//            return null;
+//        }
+//    }
+//
+//
+    public void sendRecording(Guild guild, File file, String channelId) {
+        if (file != null) {
+            TextChannel channel = guild.getTextChannelById(channelId);
+            if (channel != null) {
+                FileUpload f = FileUpload.fromData(file, file.getName());
+                channel.sendFiles(f).queue();
+            } else {
+                System.out.println("Текстовый канал не найден.");
+            }
+        }
+    }
+
 
     private void startStage(Guild guild, @NotNull Stage stage) {
         switch (stage) {
@@ -491,19 +549,6 @@ public class DebateController {
                     });
                 });
             }
-            case DRAW -> {
-                playAudio(guild, "Победа оппозиции.mp3", () -> {
-                    enableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
-                        AudioManager audioManager = guild.getAudioManager();
-                        if (audioManager.isConnected()) {
-                            audioManager.closeAudioConnection();
-                            System.out.println("Бот покинул голосовой канал.");
-                        } else {
-                            System.out.println("Бот уже не находится в голосовом канале.");
-                        }
-                    });
-                });
-            }
         }
     }
 
@@ -604,14 +649,8 @@ public class DebateController {
         votedJudges.add(event.getMember());
         if (voteFor == Winner.GOVERNMENT) {
             votesForGovernment++;
-//            apiRepository.showEphemeralLoading(event, (message) -> {
-//                message.editOriginal("Вы проголосовали за \"Правительство\"").queue();
-//            });
         } else if (voteFor == Winner.OPPOSITION) {
             votesForOpposition++;
-//            apiRepository.showEphemeralLoading(event, (message) -> {
-//                message.editOriginal("Вы проголосовали за \"Оппозицию\"").queue();
-//            });
         }
         updateVotingMessage();
         if (callback != null) callback.run();
@@ -621,8 +660,6 @@ public class DebateController {
                 winner = Winner.GOVERNMENT;
             } else if (votesForGovernment < votesForOpposition) {
                 winner = Winner.OPPOSITION;
-            } else {
-                winner = Winner.DRAW;
             }
             System.out.println("WINNER " + winner);
             disableVotingButtons();

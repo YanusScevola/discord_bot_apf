@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="DBNavigator.Project.DDLFileAttachmentManager">
+    <mappings />
+    <preferences />
+  </component>
   <component name="DBNavigator.Project.DataEditorManager">
     <record-view-column-sorting-type value="BY_INDEX" />
     <value-preview-text-wrapping value="false" />
@@ -26,8 +30,9 @@
     <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" />
   </component>
   <component name="DBNavigator.Project.DatasetFilterManager">
-    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATE" active-filter-id="" />
-    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATERS" active-filter-id="" />
+    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATE" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.TEAMS" active-filter-id="" />
+    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATERS" active-filter-id="EMPTY_FILTER" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />
@@ -115,9 +120,10 @@
           <tcp-host-address value="" />
           <tcp-port-from value="4000" />
           <tcp-port-to value="4999" />
+          <debugger-type value="ASK" />
         </debugger>
         <object-filters hide-empty-schemas="false" hide-pseudo-columns="false" hide-audit-columns="false">
-          <object-type-filter>
+          <object-type-filter use-master-settings="true">
             <object-type name="SCHEMA" enabled="true" />
             <object-type name="USER" enabled="true" />
             <object-type name="ROLE" enabled="true" />
@@ -497,9 +503,6 @@
         <compile-dependencies value="ASK" />
         <always-show-controls value="false" />
       </compiler>
-      <debugger>
-        <debugger-type value="ASK" />
-      </debugger>
     </operation-settings>
     <ddl-file-settings>
       <extensions>

@@ -1,39 +1,37 @@
 package org.example.utils;
 
 import net.dv8tion.jda.api.entities.Member;
-import org.example.core.models.Debater;
+import org.example.core.models.DebaterAPF;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class DebaterMapper {
 
-    public static Debater mapFromMember(Member member) {
-        Debater debater = new Debater();
+    public static DebaterAPF mapFromMember(Member member) {
+        DebaterAPF debaterAPF = new DebaterAPF();
 
-        debater.setId(member.getId());
-        debater.setNickname(member.getUser().getName());
-        debater.setTeamName("нет информации");
-        debater.setBalls(0);
-        debater.setDebateCount(0);
-        debater.setWinner(0);
+//        debaterAPF.setMemberId(member.getId());
+        debaterAPF.setNickname(member.getUser().getName());
+//        debaterAPF.setBalls(0);
+//        debaterAPF.setDebateCount(0);
+//        debaterAPF.setWinner(0);
 
-        return debater;
+        return debaterAPF;
     }
-    public static List<Debater> mapFromMembers(List<Member> members) {
+    public static List<DebaterAPF> mapFromMembers(List<Member> members) {
         return members.stream().map(DebaterMapper::mapSingleMemberToDebater).collect(Collectors.toList());
     }
 
-    private static Debater mapSingleMemberToDebater(Member member) {
-        Debater debater = new Debater();
+    private static DebaterAPF mapSingleMemberToDebater(Member member) {
+        DebaterAPF debaterAPF = new DebaterAPF();
 
-        debater.setId(member.getId());
-        debater.setNickname(member.getUser().getName());
-        debater.setTeamName("нет информации");
-        debater.setBalls(0);
-        debater.setDebateCount(0);
-        debater.setWinner(0);
+//        debaterAPF.setMemberId(member.getId());
+        debaterAPF.setNickname(member.getUser().getName());
+//        debaterAPF.setBalls(0);
+//        debaterAPF.setDebateCount(0);
+//        debaterAPF.setWinner(0);
 
-        return debater;
+        return debaterAPF;
     }
 }

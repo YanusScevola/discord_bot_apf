@@ -1,4 +1,4 @@
-package org.example.audio.lavaplayer;
+package org.example.player;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
@@ -13,7 +13,6 @@ import net.dv8tion.jda.api.entities.Guild;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class PlayerManager {
 

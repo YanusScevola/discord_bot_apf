@@ -1,6 +1,6 @@
 package org.example.data.source;
 
-import org.example.core.models.Debater;
+import org.example.core.models.DebaterAPF;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +99,7 @@ public class Database {
 
 
 
-    public void insertDebaters(@NotNull List<Debater> debaters) {
+    public void insertDebaters(@NotNull List<DebaterAPF> debaterAPFS) {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
@@ -109,13 +109,13 @@ public class Database {
             String updateSql = "UPDATE DEBATERS SET NICKNAME = ? WHERE ID = ?;";
             updateStmt = connection.prepareStatement(updateSql);
 
-            for (Debater debater : debaters) {
-                pstmt.setString(1, String.valueOf(debater.getId()));
-                pstmt.setString(2, debater.getNickname());
+            for (DebaterAPF debaterAPF : debaterAPFS) {
+                pstmt.setString(1, String.valueOf(debaterAPF.getMemberId()));
+                pstmt.setString(2, debaterAPF.getNickname());
                 pstmt.addBatch();
 
-                updateStmt.setString(1, debater.getNickname());
-                updateStmt.setString(2, String.valueOf(debater.getId())); // Здесь также используется setString вместо setLong
+                updateStmt.setString(1, debaterAPF.getNickname());
+                updateStmt.setString(2, String.valueOf(debaterAPF.getMemberId())); // Здесь также используется setString вместо setLong
                 updateStmt.addBatch();
             }
 
@@ -129,7 +129,7 @@ public class Database {
         }
     }
 
-    public void insertDebater(@NotNull Debater debater) {
+    public void insertDebater(@NotNull DebaterAPF debaterAPF) {
         PreparedStatement pstmt = null;
         PreparedStatement updateStmt = null;
         try {
@@ -139,12 +139,12 @@ public class Database {
             String updateSql = "UPDATE DEBATERS SET NICKNAME = ? WHERE ID = ?;";
             updateStmt = connection.prepareStatement(updateSql);
 
-            pstmt.setString(1, String.valueOf(debater.getId()));
-            pstmt.setString(2, debater.getNickname());
+            pstmt.setString(1, String.valueOf(debaterAPF.getMemberId()));
+            pstmt.setString(2, debaterAPF.getNickname());
             pstmt.executeUpdate();
 
-            updateStmt.setString(1, debater.getNickname());
-            updateStmt.setString(2, String.valueOf(debater.getId()));
+            updateStmt.setString(1, debaterAPF.getNickname());
+            updateStmt.setString(2, String.valueOf(debaterAPF.getMemberId()));
             updateStmt.executeUpdate();
         } catch (SQLException e) {
             logger.debug("Ошибка вставки дебатера", e);
@@ -154,9 +154,9 @@ public class Database {
         }
     }
 
-    public List<Debater> getAllDebaters() {
+    public List<DebaterAPF> getAllDebaters() {
         Statement stmt = null;
-        List<Debater> debaters = new ArrayList<>();
+        List<DebaterAPF> debaterAPFS = new ArrayList<>();
         try {
             stmt = connection.createStatement();
             ResultSet rs = stmt.executeQuery("SELECT * FROM DEBATERS;");
@@ -168,14 +168,14 @@ public class Database {
                 String nickname = rs.getString("NICKNAME");
                 int winner = rs.getInt("WINNER");
 
-                Debater debater = new Debater();
-                debater.setId(id);
-                debater.setDebateCount(debateCount);
-                debater.setBalls(balls);
-                debater.setNickname(nickname);
-                debater.setWinner(winner);
+                DebaterAPF debaterAPF = new DebaterAPF();
+//                debaterAPF.setMemberId(id);
+//                debaterAPF.setDebateCount(debateCount);
+//                debaterAPF.setBalls(balls);
+                debaterAPF.setNickname(nickname);
+//                debaterAPF.setWinner(winner);
 
-                debaters.add(debater);
+                debaterAPFS.add(debaterAPF);
             }
         } catch (SQLException e) {
            logger.debug("Ошибка чтения дебатеров", e);
@@ -186,13 +186,13 @@ public class Database {
                 logger.debug("Ошибка закрытия statement", e);
             }
         }
-        return debaters;
+        return debaterAPFS;
     }
 
 
-    public List<Debater> getDebatersByIds(List<String> ids) {
+    public List<DebaterAPF> getDebatersByIds(List<String> ids) {
         Statement stmt = null;
-        List<Debater> debaters = new ArrayList<>();
+        List<DebaterAPF> debaterAPFS = new ArrayList<>();
 
         String joinedIds = String.join(",", ids);
 
@@ -207,14 +207,14 @@ public class Database {
                 String nickname = rs.getString("NICKNAME");
                 int winner = rs.getInt("WINNER");
 
-                Debater debater = new Debater();
-                debater.setId(id);
-                debater.setDebateCount(debateCount);
-                debater.setBalls(balls);
-                debater.setNickname(nickname);
-                debater.setWinner(winner);
+                DebaterAPF debaterAPF = new DebaterAPF();
+//                debaterAPF.setMemberId(id);
+//                debaterAPF.setDebateCount(debateCount);
+//                debaterAPF.setBalls(balls);
+                debaterAPF.setNickname(nickname);
+//                debaterAPF.setWinner(winner);
 
-                debaters.add(debater);
+                debaterAPFS.add(debaterAPF);
             }
         } catch (SQLException e) {
             logger.debug("Ошибка чтения дебатеров по ID", e);
@@ -225,7 +225,7 @@ public class Database {
                 logger.debug("Ошибка закрытия statement", e);
             }
         }
-        return debaters;
+        return debaterAPFS;
     }
 
 

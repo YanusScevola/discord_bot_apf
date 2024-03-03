@@ -33,7 +33,7 @@ public class SubscribeController {
     private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
 
-    private static final int START_DEBATE_TIMER = 6; //60
+    private static final int START_DEBATE_TIMER = 3; //60
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
