@@ -45,6 +45,10 @@ public class ApiService {
         return jda.getTextChannelById(channelId);
     }
 
+    public Guild getGuild() {
+        return jda.getGuildById(ServerID.SERVER_ID);
+    }
+
     public CompletableFuture<List<Member>> getAllMembers() {
         CompletableFuture<List<Member>> future = new CompletableFuture<>();
         if (server == null) {
@@ -184,7 +188,6 @@ public class ApiService {
     }
 
 
-
     public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
         CompletableFuture<Void> future = new CompletableFuture<>();
         if (server == null) {
@@ -207,12 +210,67 @@ public class ApiService {
         return future;
     }
 
+    public void removeRoleFromUsers(Map<Member, Long> memberToRoleMap, Runnable callback) {
+        if (memberToRoleMap == null || memberToRoleMap.isEmpty()) {
+            System.err.println("Словарь участников и ролей пуст или не предоставлен.");
+            if (callback != null) {
+                callback.run();
+            }
+            return;
+        }
+
+        final int[] totalOperations = {0};
+        final int[] completedOperations = {0};
+
+        // Устанавливаем общее количество операций на размер словаря.
+        totalOperations[0] = memberToRoleMap.size();
+
+        for (Map.Entry<Member, Long> entry : memberToRoleMap.entrySet()) {
+            Member member = entry.getKey();
+            Long roleId = entry.getValue();
+
+            if (member == null) {
+                System.err.println("Один из участников является null.");
+                completedOperations[0]++;
+                continue;
+            }
+
+            Role role = server.getRoleById(roleId);
+            if (role == null) {
+                System.err.println("Роль с ID " + roleId + " не найдена на сервере.");
+                completedOperations[0]++;
+                continue;
+            }
+
+            server.removeRoleFromMember(member, role).queue(
+                    success -> {
+                        completedOperations[0]++;
+                        if (completedOperations[0] == totalOperations[0] && callback != null) {
+                            callback.run();
+                        }
+                    },
+                    failure -> {
+                        System.err.println("Не удалось удалить роль " + role.getName() + " участнику: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
+                        completedOperations[0]++;
+                        if (completedOperations[0] == totalOperations[0] && callback != null) {
+                            callback.run();
+                        }
+                    }
+            );
+        }
+    }
+
 
     public void showEphemeralLoading(@NotNull ButtonInteractionEvent event, Consumer<InteractionHook> callback) {
         if (!event.isAcknowledged()) {
             event.deferReply(true).queue(
                     hook -> {
-                        hook.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                        hook.deleteOriginal().queueAfter(5, TimeUnit.SECONDS,
+                                null,
+                                failure -> {
+                                    System.err.println("Не удалось удалить оригинальное сообщение: " + failure.getMessage());
+                                }
+                        );
                         callback.accept(hook);
                     },
                     failure -> System.err.println("Не удалось отложить ответ: " + failure.getMessage())
@@ -223,11 +281,10 @@ public class ApiService {
     }
 
 
-
-    public void muteMembers(List<Member> members, boolean mute, Runnable callback) {
+    public void processingMicrophone(List<Member> members, boolean mute, Runnable callback) {
         try {
             if (members.isEmpty()) {
-                callback.run();
+                if (callback != null) callback.run();
                 return;
             }
 

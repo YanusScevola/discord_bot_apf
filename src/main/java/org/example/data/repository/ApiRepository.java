@@ -1,6 +1,7 @@
 package org.example.data.repository;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
@@ -29,6 +30,10 @@ public class ApiRepository {
         return apiService.getTextChannel(channelId);
     }
 
+    public Guild getGuild() {
+        return apiService.getGuild();
+    }
+
     public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
         return apiService.getMembersByRole(roleId);
     }
@@ -49,16 +54,19 @@ public class ApiRepository {
         apiService.addRoleToMembers(memberToRoleMap, callback);
     }
 
-    public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
-        return apiService.removeRoleFromUser(userId, roleId);
+    public void removeRoleFromUsers(Map<Member, Long> memberToRoleMap, Runnable callback) {
+        apiService.removeRoleFromUsers(memberToRoleMap, callback);
     }
 
     public void moveMembers(List<Member> members, VoiceChannel targetChannel, Runnable callback) {
         apiService.moveMembers(members, targetChannel, callback);
     }
 
-    public void muteMembers(List<Member> members, boolean mute, Runnable callback) {
-        apiService.muteMembers(members, mute, callback);
+    public void disabledMicrophone(List<Member> members, Runnable callback) {
+        apiService.processingMicrophone(members, true, callback);
+    }
+    public void enabledMicrophone(List<Member> members,Runnable callback) {
+        apiService.processingMicrophone(members, false, callback);
     }
 
     public void showEphemeralLoading(@NotNull ButtonInteractionEvent event, Consumer<InteractionHook> callback) {

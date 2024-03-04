@@ -1,6 +1,7 @@
 package org.example.core;
 
 import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -33,29 +34,33 @@ public class MainListenerAdapter extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
-        if (event.getChannelLeft() != null) {
-            long channelId = event.getChannelLeft().getIdLong();
-            String leftChannelName = event.getChannelLeft().getName();
+        AudioChannel channelJoined = event.getChannelJoined();
+        AudioChannel channelLeft = event.getChannelLeft();
 
-            if (channelId == VoiceChannelsID.WAITING_ROOM) {
-                subscribeTextChat.onLeaveFromVoiceChannel(event);
-            }
+//        boolean isJoinToDebateChannel = isDebateChannel(channelJoined);
+//        boolean isLeaveFromDebateChannel = isDebateChannel(channelLeft);
 
-            if (leftChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
-                if (subscribeTextChat != null && subscribeTextChat.debateController != null) {
-                    subscribeTextChat.debateController.onLeaveFromVoiceChannel(event);
-                }
+
+        String channelJoinedName = channelJoined != null ? channelJoined.getName() : "";
+        String channelLeftName = channelLeft != null ? channelLeft.getName() : "";
+        long channelJoinedId = channelJoined != null ? channelJoined.getIdLong() : -1;
+        long channelLeftId = channelLeft != null ? channelLeft.getIdLong() : -1;
+
+        if (channelJoinedName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+            if (subscribeTextChat.debateController != null) {
+                subscribeTextChat.debateController.onJoinToTribuneVoiceChannel(event.getGuild(), channelJoined, event.getMember());
             }
         }
 
-        if (event.getChannelJoined() != null) {
-            String joinedChannelName = event.getChannelJoined().getName();
-
-            if (joinedChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
-                subscribeTextChat.debateController.onJoinToVoiceChannel(event);
+        if (channelLeftId == VoiceChannelsID.WAITING_ROOM) {
+            subscribeTextChat.onLeaveFromVoiceChannel(event);
+        }else if (channelLeftName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+            if (subscribeTextChat.debateController != null) {
+                subscribeTextChat.debateController.onLeaveFromTribuneVoiceChannel(event.getGuild(), channelJoined, event.getMember());
             }
-
         }
+
+
     }
 
 
@@ -82,10 +87,19 @@ public class MainListenerAdapter extends ListenerAdapter {
         } else {
             if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
-            }else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE))) {
+            } else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE))) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
             }
         }
+    }
+
+    private boolean isDebateChannel(AudioChannel channel) {
+        if (channel == null) return false;
+        String channelName = channel.getName();
+        return channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE)) ||
+                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE)) ||
+                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_GOVERNMENT)) ||
+                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION));
     }
 
 

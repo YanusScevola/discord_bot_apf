@@ -9,7 +9,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
-import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
@@ -37,6 +37,7 @@ public class DebateController {
     private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4; // 4
     private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5; // 5
     private static final int JUDGES_PREPARATION_TIME = 15; // 15
+    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 10; // 60
 
     private static final String END_DEBATE_BTN_ID = "end_debate";
     private static final String END_SPEECH_BTN_ID = "end_speech";
@@ -77,10 +78,13 @@ public class DebateController {
     private Stage currentStage = Stage.START_DEBATE;
     private StageTimer currentStageTimer;
     private boolean isDebateStarted = false;
+    private boolean isWaitingMemberInTribuneForSpeak = false;
     private int votesForGovernment = 0;
     private int votesForOpposition = 0;
     private Message votingMessage;
-    private Winner winner = Winner.GOVERNMENT;
+    private Message waitingMessage;
+    private Winner winner = Winner.NO_WINNER;
+    private Timer waitingMemberInTribuneTimer;
 
 
     public DebateController(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes, SubscribeController subscribeController) {
@@ -95,21 +99,33 @@ public class DebateController {
         voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_VOTE_OPPOSITION));
     }
 
-    public void onJoinToVoiceChannel(@NotNull GuildVoiceUpdateEvent event) {
-        handelMembersMute(event);
-        initDebateMembers(event);
-        startDebate(event);
+    public void onJoinToTribuneVoiceChannel(Guild guild, AudioChannel channelJoined, Member member) {
+        initDebateMember(guild, member);
+
+        boolean isGovernmentDebatersReady = governmentDebaters.size() == GOVERNMENT_DEBATERS_LIMIT;
+        boolean isOppositionDebatersReady = oppositionDebaters.size() == OPPOSITION_DEBATERS_LIMIT;
+        boolean isJudgesReady = judges.size() >= 1;
+        boolean isBotJoined = member.equals(bot);
+
+        disableMicrophone(List.of(member), null);
+
+        if (isGovernmentDebatersReady && isOppositionDebatersReady && isJudgesReady && !isDebateStarted) {
+            startDebate(guild);
+        }
+
+        if (isDebateStarted) {
+            handelWaitingMemberInTribuneForSpeak(guild, channelJoined, member);
+        }
+
+        if(currentStage == Stage.JUDGES_PREPARATION){
+            if(new HashSet<>(judgesVoiceChannel.getMembers()).containsAll(judges)){
+                startStage(guild, Stage.JUDGES_VERDICT);
+            }
+        }
     }
 
-    public void onLeaveFromVoiceChannel(GuildVoiceUpdateEvent event) {
-        boolean isChannelEmpty = tribuneVoiceChannel != null && tribuneVoiceChannel.getMembers().isEmpty();
-        enableMicrophone(event.getMember(), () -> {
-            if (isDebateStarted && isChannelEmpty) {
-                deleteVoiceChannels(allVoiceChannels.stream().toList(), () -> {
-                    subscribeController.restartDebate();
-                });
-            }
-        });
+    public void onLeaveFromTribuneVoiceChannel(Guild guild, AudioChannel channelLeft, Member member) {
+        apiRepository.enabledMicrophone(List.of(member), null);
     }
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
@@ -211,66 +227,70 @@ public class DebateController {
         });
     }
 
-    private void handelMembersMute(GuildVoiceUpdateEvent event) {
-        Member member = event.getMember();
-        if (member.equals(event.getGuild().getSelfMember())) {
-            bot = member;
-        } else {
-            disableMicrophone(member, null);
-        }
-    }
+    private void initDebateMember(Guild guild, Member member) {
+        List<Role> roles = member.getRoles();
 
-    private void initDebateMembers(GuildVoiceUpdateEvent event) {
-        List<Role> roles = event.getMember().getRoles();
-        Member member = event.getMember();
-
-        if (roles.contains(event.getGuild().getRoleById(RolesID.HEAD_GOVERNMENT))) {
+        if (roles.contains(guild.getRoleById(RolesID.HEAD_GOVERNMENT))) {
             headGovernment = member;
             governmentDebaters.add(member);
         }
-        if (roles.contains(event.getGuild().getRoleById(RolesID.HEAD_OPPOSITION))) {
+        if (roles.contains(guild.getRoleById(RolesID.HEAD_OPPOSITION))) {
             headOpposition = member;
             oppositionDebaters.add(member);
         }
-        if (roles.contains(event.getGuild().getRoleById(RolesID.MEMBER_GOVERNMENT))) {
+        if (roles.contains(guild.getRoleById(RolesID.MEMBER_GOVERNMENT))) {
             memberGovernment = member;
             governmentDebaters.add(member);
         }
-        if (roles.contains(event.getGuild().getRoleById(RolesID.MEMBER_OPPOSITION))) {
+        if (roles.contains(guild.getRoleById(RolesID.MEMBER_OPPOSITION))) {
             memberOpposition = member;
             oppositionDebaters.add(member);
         }
-        if (roles.contains(event.getGuild().getRoleById(RolesID.JUDGE))) {
+        if (roles.contains(guild.getRoleById(RolesID.JUDGE))) {
             judges.add(member);
         }
-    }
-
-    private void startDebate(GuildVoiceUpdateEvent event) {
-        boolean isGovernmentDebatersReady = governmentDebaters.size() == GOVERNMENT_DEBATERS_LIMIT;
-        boolean isOppositionDebatersReady = oppositionDebaters.size() == OPPOSITION_DEBATERS_LIMIT;
-        boolean isJudgesReady = judges.size() >= 1;
-
-        if (isGovernmentDebatersReady && isOppositionDebatersReady && isJudgesReady && !isDebateStarted) {
-            isDebateStarted = true;
-            allDebaters.addAll(governmentDebaters);
-            allDebaters.addAll(oppositionDebaters);
-            startStage(event.getMember().getGuild(), Stage.START_DEBATE);
-
+        if (member.equals(guild.getSelfMember())) {
+            bot = member;
         }
     }
-//
-//    public File getRecordingFile() {
-//        String filePath = "audio.pcm";
-//
-//        File recordingFile = new File(filePath);
-//        if (recordingFile.exists()) {
-//            return recordingFile;
-//        } else {
-//            System.out.println("Файл записи не найден.");
-//            return null;
-//        }
-//    }
-//
+
+    private void handelWaitingMemberInTribuneForSpeak(Guild guild,AudioChannel channelJoined, Member member) {
+        if (isWaitingMemberInTribuneForSpeak) {
+            if (currentStage == Stage.HEAD_GOVERNMENT_FIRST_SPEECH) {
+                if ((member.getRoles().contains(guild.getRoleById(RolesID.HEAD_GOVERNMENT)))) {
+                    waitingMemberInTribuneTimer.cancel();
+                    editMessageWithEmbed(waitingMessage, "Глава правительства вступил в трибуну");
+                    startStage(channelJoined.getGuild(), Stage.HEAD_GOVERNMENT_FIRST_SPEECH);
+                }
+            } else if (currentStage == Stage.HEAD_OPPOSITION_FIRST_SPEECH) {
+                if (member.getRoles().contains(guild.getRoleById(RolesID.HEAD_OPPOSITION))) {
+                    waitingMemberInTribuneTimer.cancel();
+                    editMessageWithEmbed(waitingMessage, "Глава оппозиции вступил в трибуну");
+                    startStage(channelJoined.getGuild(), Stage.HEAD_OPPOSITION_FIRST_SPEECH);
+                }
+            } else if (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH) {
+                if ((member.getRoles().contains(guild.getRoleById(RolesID.MEMBER_GOVERNMENT)))) {
+                    waitingMemberInTribuneTimer.cancel();
+                    editMessageWithEmbed(waitingMessage, "Член правительства вступил в трибуну");
+                    startStage(channelJoined.getGuild(), Stage.MEMBER_GOVERNMENT_SPEECH);
+                }
+            } else if (currentStage == Stage.MEMBER_OPPOSITION_SPEECH) {
+                if ((member.getRoles().contains(guild.getRoleById(RolesID.MEMBER_OPPOSITION)))) {
+                    waitingMemberInTribuneTimer.cancel();
+                    editMessageWithEmbed(waitingMessage, "Член оппозиции вступил в трибуну");
+                    startStage(channelJoined.getGuild(), Stage.MEMBER_OPPOSITION_SPEECH);
+                }
+            }
+        }
+    }
+
+    private void startDebate(Guild guild) {
+        isDebateStarted = true;
+        allDebaters.addAll(governmentDebaters);
+        allDebaters.addAll(oppositionDebaters);
+        startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
+    }
+
     private void startStage(Guild guild, @NotNull Stage stage) {
         switch (stage) {
             case START_DEBATE -> startGreetingsStage(guild);
@@ -286,6 +306,7 @@ public class DebateController {
         }
     }
 
+
     private void startGreetingsStage(Guild guild) {
         isDebateStarted = true;
         currentStage = Stage.START_DEBATE;
@@ -299,7 +320,7 @@ public class DebateController {
         List<Button> buttons = List.of();
 
         playAudio(guild, "Подготовка дебатеров.mp3", () -> {
-            sendTheme("ЭП хочет отменить традиционное образование в пользу индивидуализированных образовательных траекторий.");
+            sendDebateTheme("ЭП хочет отменить традиционное образование в пользу индивидуализированных образовательных траекторий.");
             moveMembers(oppositionDebaters.stream().toList(), oppositionVoiceChannel, () -> {
                 moveMembers(governmentDebaters.stream().toList(), governmentVoiceChannel, () -> {
                     startTimer(currentStageTimer, title, DEBATERS_PREPARATION_TIME, buttons, () -> {
@@ -320,141 +341,167 @@ public class DebateController {
     }
 
     private void startHeadGovernmentFirstSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headGovernment);
         currentStage = Stage.HEAD_GOVERNMENT_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_FIRST_SPEECH);
         List<Button> buttons = List.of(endSpeechButton);
 
-        playAudio(guild, "Вступ глава правительства.mp3", () -> {
-            enableMicrophone(headGovernment, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(headGovernment, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Вступ глава правительства.mp3", () -> {
+                enableMicrophone(List.of(headGovernment), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(headGovernment), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH);
+                        });
                     });
                 });
             });
-        });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, headGovernment, WAITING_MEMBER_IN_TRIBUNE_TIME, "Глава правительства");
+            });
+        }
     }
 
     private void startHeadOppositionFirstSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headOpposition);
         currentStage = Stage.HEAD_OPPOSITION_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_FIRST_SPEECH);
         List<Button> buttons = List.of(endSpeechButton);
 
-        playAudio(guild, "Вступ глава оппозиции.mp3", () -> {
-            enableMicrophone(headOpposition, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(headOpposition, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Вступ глава оппозиции.mp3", () -> {
+                enableMicrophone(List.of(headOpposition), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(headOpposition), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
+                        });
                     });
                 });
             });
-        });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, headOpposition, WAITING_MEMBER_IN_TRIBUNE_TIME, "Глава оппозиции");
+            });
+        }
     }
 
     private void startMemberGovernmentSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(memberGovernment);
         currentStage = Stage.MEMBER_GOVERNMENT_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_GOVERNMENT_SPEECH);
         List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
-
-        playAudio(guild, "Член правительства.mp3", () -> {
-            enableMicrophone(memberGovernment, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, MEMBER_GOVERNMENT_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(memberGovernment, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Член правительства.mp3", () -> {
+                enableMicrophone(List.of(memberGovernment), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, MEMBER_GOVERNMENT_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(memberGovernment), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH);
+                        });
                     });
                 });
             });
-        });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, memberGovernment, WAITING_MEMBER_IN_TRIBUNE_TIME, "Член правительства");
+            });
+        }
     }
 
     private void startMemberOppositionSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(memberOpposition);
         currentStage = Stage.MEMBER_OPPOSITION_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_OPPOSITION_SPEECH);
         List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
-
-        playAudio(guild, "Член оппозиции.mp3", () -> {
-            enableMicrophone(memberOpposition, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, MEMBER_OPPOSITION_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(memberOpposition, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Член оппозиции.mp3", () -> {
+                enableMicrophone(List.of(memberOpposition), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, MEMBER_OPPOSITION_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(memberOpposition), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH);
+                        });
                     });
                 });
             });
-        });
-    }
-
-    private void startAskOpponent(Guild guild, Member asker, Member answerer) {
-        stopCurrentAudio(guild);
-        disableMicrophone(answerer, () -> {
-            pauseTimer(OPPONENT_ASK_TIME, 6, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                disableMicrophone(asker, () -> {
-                    enableMicrophone(answerer, this::resumeTimer);
-                });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, memberOpposition, WAITING_MEMBER_IN_TRIBUNE_TIME, "Член оппозиции");
             });
-            playAudio(guild, "Опонент задает вопрос.mp3", () -> {
-                enableMicrophone(asker, () -> {
-
-                });
-            });
-        });
+        }
     }
 
     private void startHeadOppositionLastSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headOpposition);
         currentStage = Stage.HEAD_OPPOSITION_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_LAST_SPEECH);
         List<Button> buttons = List.of(endSpeechButton);
-
-        playAudio(guild, "Закл глава оппозиции.mp3", () -> {
-            enableMicrophone(headOpposition, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(headOpposition, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Закл глава оппозиции.mp3", () -> {
+                enableMicrophone(List.of(headOpposition), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(headOpposition), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
+                        });
                     });
                 });
             });
-        });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, headOpposition, WAITING_MEMBER_IN_TRIBUNE_TIME, "Глава оппозиции");
+            });
+        }
     }
 
     private void startHeadGovernmentLastSpeechStage(Guild guild) {
+        boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headGovernment);
         currentStage = Stage.HEAD_GOVERNMENT_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_LAST_SPEECH);
         List<Button> buttons = List.of(endSpeechButton);
-
-        playAudio(guild, "Закл глава правительства.mp3", () -> {
-            enableMicrophone(headGovernment, () -> {
-                playAudio(guild, "Тишина.mp3", null);
-                startTimer(currentStageTimer, title, HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, () -> {
-                    disableMicrophone(headGovernment, () -> {
-                        stopCurrentAudio(guild);
-                        startStage(guild, Stage.JUDGES_PREPARATION);
+        if (isDebaterAreInTribune) {
+            playAudio(guild, "Закл глава правительства.mp3", () -> {
+                enableMicrophone(List.of(headGovernment), () -> {
+                    playAudio(guild, "Тишина.mp3", null);
+                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, () -> {
+                        disableMicrophone(List.of(headGovernment), () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.JUDGES_PREPARATION);
+                        });
                     });
                 });
             });
-        });
+        } else {
+            isWaitingMemberInTribuneForSpeak = true;
+            playAudio(guild, "Участник отсутствует.mp3", () -> {
+                waitForMemberInTribune(guild, headGovernment, WAITING_MEMBER_IN_TRIBUNE_TIME, "Глава правительства");
+            });
+        }
     }
 
     private void startJudgesPreparationStage(Guild guild) {
         currentStage = Stage.JUDGES_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = stringsRes.get(StringRes.Key.TITLE_JUDGES_PREPARATION);
-
         playAudio(guild, "Подготовка судей.mp3", () -> {
             moveMembers(judges.stream().toList(), judgesVoiceChannel, () -> {
                 sendVotingMessage();
@@ -484,7 +531,7 @@ public class DebateController {
                         AudioManager audioManager = guild.getAudioManager();
                         if (audioManager.isConnected()) {
                             audioManager.closeAudioConnection();
-                            System.out.println("Бот покинул голосовой канал.");
+                            endDebate();
                         } else {
                             System.out.println("Бот уже не находится в голосовом канале.");
                         }
@@ -497,7 +544,20 @@ public class DebateController {
                         AudioManager audioManager = guild.getAudioManager();
                         if (audioManager.isConnected()) {
                             audioManager.closeAudioConnection();
-                            System.out.println("Бот покинул голосовой канал.");
+                            endDebate();
+                        } else {
+                            System.out.println("Бот уже не находится в голосовом канале.");
+                        }
+                    });
+                });
+            }
+            case NO_WINNER -> {
+                playAudio(guild, "Ничья.mp3", () -> {
+                    enableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
+                        AudioManager audioManager = guild.getAudioManager();
+                        if (audioManager.isConnected()) {
+                            audioManager.closeAudioConnection();
+                            endDebate();
                         } else {
                             System.out.println("Бот уже не находится в голосовом канале.");
                         }
@@ -505,6 +565,159 @@ public class DebateController {
                 });
             }
         }
+    }
+
+    private void sendDebateTheme(String theme) {
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        embedBuilder.setTitle("Тема: " + theme).setColor(Color.GREEN);
+        tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
+    }
+
+    private void startAskOpponent(Guild guild, Member asker, Member answerer) {
+        stopCurrentAudio(guild);
+        disableMicrophone(List.of(answerer), () -> {
+            pauseTimer(OPPONENT_ASK_TIME, 6, () -> {
+                playAudio(guild, "Тишина.mp3", null);
+                disableMicrophone(List.of(asker), () -> {
+                    enableMicrophone(List.of(answerer), this::resumeTimer);
+                });
+            });
+            playAudio(guild, "Опонент задает вопрос.mp3", () -> {
+                enableMicrophone(List.of(asker), () -> {
+
+                });
+            });
+        });
+    }
+
+    private void waitForMemberInTribune(Guild guild, Member member, long delayInSeconds, String title) {
+        long currentTimeMillis = System.currentTimeMillis();
+        String timerText = "Таймер: <t:" + (currentTimeMillis / 1000 + delayInSeconds) + ":R>";
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle(title + " отсутствует в трибуне, предлагаю подождать его подождать.");
+        embed.setDescription(timerText);
+        embed.setColor(Color.YELLOW);
+
+        tribuneVoiceChannel.sendMessageEmbeds(embed.build()).queue(message -> {
+            waitingMessage = message;
+        });
+
+        waitingMemberInTribuneTimer = new Timer();
+        waitingMemberInTribuneTimer.schedule(
+                new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        isWaitingMemberInTribuneForSpeak = false;
+                        if (tribuneVoiceChannel.getMembers().contains(member)) {
+                            startStage(guild, currentStage);
+                        } else {
+                            endDebate();
+                        }
+                    }
+                },
+                delayInSeconds * 1000
+        );
+    }
+
+    public void editMessageWithEmbed(Message message, String newText) {
+        if (message == null || newText == null) {
+            return;
+        }
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        embedBuilder.setDescription(newText);
+        embedBuilder.setColor(Color.YELLOW);
+        message.editMessageEmbeds(embedBuilder.build()).queue();
+    }
+
+    public void sendVotingMessage() {
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle(stringsRes.get(StringRes.Key.TITLE_VOTING));
+        eb.setDescription(stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_GOVERNMENT) + votesForGovernment + stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_OPPOSITION) + votesForOpposition);
+        eb.setColor(0xF40C0C);
+
+        judgesVoiceChannel.sendMessageEmbeds(eb.build())
+                .setActionRow(voteGovernmentButton, voteOppositionButton)
+                .queue(message -> votingMessage = message);
+    }
+
+    private void voteForWinner(ButtonInteractionEvent event, Winner voteFor, Runnable callback) {
+        System.out.println("VOTE FOR " + voteFor);
+        if (votedJudges.contains(event.getMember())) {
+            apiRepository.showEphemeralLoading(event, (message) -> {
+                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_ALREADY_VOTED)).queue();
+            });
+            return;
+        }
+        votedJudges.add(event.getMember());
+        if (voteFor == Winner.GOVERNMENT) {
+            votesForGovernment++;
+        } else if (voteFor == Winner.OPPOSITION) {
+            votesForOpposition++;
+        }
+        updateVotingMessage();
+        if (callback != null) callback.run();
+
+        if (votedJudges.size() == judges.size()) {
+            if (votesForGovernment > votesForOpposition) {
+                winner = Winner.GOVERNMENT;
+            } else if (votesForGovernment < votesForOpposition) {
+                winner = Winner.OPPOSITION;
+            }else {
+               endDebate();
+            }
+            System.out.println("WINNER " + winner);
+            disableVotingButtons();
+            stopCurrentAudio(event.getGuild());
+            skipTimer();
+            startStage(event.getGuild(), Stage.JUDGES_VERDICT);
+        }
+    }
+
+    private void updateVotingMessage() {
+        System.out.println("UPDATE VOTING MESSAGE");
+        if (votingMessage == null) {
+            return;
+        }
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle("Голосование:");
+        eb.setDescription("За правительство: " + votesForGovernment + "\nЗа оппозицию: " + votesForOpposition);
+        eb.setColor(0xF40C0C);
+
+        System.out.println("UPDATE VOTING MESSAGE2");
+        votingMessage.editMessageEmbeds(eb.build()).queue();
+    }
+
+    private void disableVotingButtons() {
+        System.out.println("DISABLE VOTING BUTTONS");
+        if (votingMessage == null) {
+            return;
+        }
+        votingMessage.editMessageComponents(
+                ActionRow.of(voteGovernmentButton.asDisabled(), voteOppositionButton.asDisabled())
+        ).queue();
+        System.out.println("DISABLE VOTING BUTTONS2");
+    }
+
+    private void endDebate() {
+        Set<Member> allMembers = new HashSet();
+        allMembers.addAll(allDebaters);
+        allMembers.addAll(judges);
+        Map<Member, Long> memberToRoleMap = new HashMap<>();
+        judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
+        memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
+        memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
+        memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
+        memberToRoleMap.put(memberOpposition, RolesID.MEMBER_OPPOSITION);
+
+        apiRepository.enabledMicrophone(allMembers.stream().toList(), () -> {
+            apiRepository.removeRoleFromUsers(memberToRoleMap, () -> {
+                apiRepository.deleteVoiceChannels(allVoiceChannels.stream().toList(), () -> {
+                    subscribeController.endDebate();
+                });
+            });
+        });
+
     }
 
     private void playAudio(Guild guild, String path, Runnable callback) {
@@ -539,114 +752,22 @@ public class DebateController {
         currentStageTimer.resume();
     }
 
-    private void sendTheme(String theme) {
-        EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.setTitle("Тема: " + theme).setColor(Color.GREEN);
-        tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
-    }
-
     private void moveMembers(List<Member> members, VoiceChannel targetChannel, Runnable callback) {
-        apiRepository.moveMembers(members, targetChannel, callback);
+        List<Member> modifiableMembers = new ArrayList<>(members);
+        modifiableMembers.remove(bot);
+        apiRepository.moveMembers(modifiableMembers, targetChannel, callback);
     }
 
     private void enableMicrophone(List<Member> members, Runnable callback) {
         List<Member> modifiableMembers = new ArrayList<>(members);
         modifiableMembers.remove(bot);
-        apiRepository.muteMembers(modifiableMembers, false, callback);
-    }
-
-    private void enableMicrophone(Member member, Runnable callback) {
-        if (member != null) {
-            apiRepository.muteMembers(List.of(member), false, callback);
-        } else {
-            callback.run();
-        }
+        apiRepository.enabledMicrophone(modifiableMembers, callback);
     }
 
     private void disableMicrophone(List<Member> members, Runnable callback) {
         List<Member> modifiableMembers = new ArrayList<>(members);
         modifiableMembers.remove(bot);
-        apiRepository.muteMembers(modifiableMembers, true, callback);
+        apiRepository.disabledMicrophone(modifiableMembers, callback);
     }
-
-    private void disableMicrophone(Member member, Runnable callback) {
-        if (member != null) {
-            apiRepository.muteMembers(List.of(member), true, callback);
-        } else {
-            callback.run();
-        }
-    }
-
-    private void deleteVoiceChannels(List<VoiceChannel> channels, Runnable callback) {
-        apiRepository.deleteVoiceChannels(channels, callback);
-    }
-
-    public void sendVotingMessage() {
-        System.out.println("SEND VOTING MESSAGE");
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setTitle(stringsRes.get(StringRes.Key.TITLE_VOTING));
-        eb.setDescription(stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_GOVERNMENT) + votesForGovernment + stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_OPPOSITION) + votesForOpposition);
-        eb.setColor(0xF40C0C);
-
-        judgesVoiceChannel.sendMessageEmbeds(eb.build())
-                .setActionRow(voteGovernmentButton, voteOppositionButton)
-                .queue(message -> votingMessage = message);
-    }
-
-    private void voteForWinner(ButtonInteractionEvent event, Winner voteFor, Runnable callback) {
-        System.out.println("VOTE FOR " + voteFor);
-        if (votedJudges.contains(event.getMember())) {
-            apiRepository.showEphemeralLoading(event, (message) -> {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_ALREADY_VOTED)).queue();
-            });
-            return;
-        }
-        votedJudges.add(event.getMember());
-        if (voteFor == Winner.GOVERNMENT) {
-            votesForGovernment++;
-        } else if (voteFor == Winner.OPPOSITION) {
-            votesForOpposition++;
-        }
-        updateVotingMessage();
-        if (callback != null) callback.run();
-
-        if (votedJudges.size() == judges.size()) {
-            if (votesForGovernment > votesForOpposition) {
-                winner = Winner.GOVERNMENT;
-            } else if (votesForGovernment < votesForOpposition) {
-                winner = Winner.OPPOSITION;
-            }
-            System.out.println("WINNER " + winner);
-            disableVotingButtons();
-            stopCurrentAudio(event.getGuild());
-            skipTimer();
-        }
-    }
-
-    private void updateVotingMessage() {
-        System.out.println("UPDATE VOTING MESSAGE");
-        if (votingMessage == null) {
-            return;
-        }
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setTitle("Голосование:");
-        eb.setDescription("За правительство: " + votesForGovernment + "\nЗа оппозицию: " + votesForOpposition);
-        eb.setColor(0xF40C0C);
-
-        System.out.println("UPDATE VOTING MESSAGE2");
-        votingMessage.editMessageEmbeds(eb.build()).queue();
-    }
-
-    private void disableVotingButtons() {
-        System.out.println("DISABLE VOTING BUTTONS");
-        if (votingMessage == null) {
-            return;
-        }
-        votingMessage.editMessageComponents(
-                ActionRow.of(voteGovernmentButton.asDisabled(), voteOppositionButton.asDisabled())
-        ).queue();
-        System.out.println("DISABLE VOTING BUTTONS2");
-    }
-
 
 }
