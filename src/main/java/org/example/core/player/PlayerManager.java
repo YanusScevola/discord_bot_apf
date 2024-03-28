@@ -1,4 +1,4 @@
-package org.example.player;
+package org.example.core.player;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;

@@ -25,10 +25,8 @@ public class ApiService {
     private static JDA jda;
     private static Guild server;
 
-
     private ApiService() {
     }
-
 
     private static class SingletonHolder {
         private static final ApiService INSTANCE = new ApiService();
@@ -49,63 +47,125 @@ public class ApiService {
         return jda.getGuildById(ServerID.SERVER_ID);
     }
 
-    public CompletableFuture<List<Member>> getAllMembers() {
-        CompletableFuture<List<Member>> future = new CompletableFuture<>();
+    public CompletableFuture<List<Member>> getMembersByIds(List<Long> memberIds) {
+        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
+        List<Member> members = new ArrayList<>();
+
         if (server == null) {
-            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
-            return future;
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return resultFuture;
         }
-        server.loadMembers()
-                .onSuccess(future::complete)
-                .onError(e -> future.completeExceptionally(new RuntimeException("Ошибка загрузки участников")));
-        return future;
+
+        if (memberIds.isEmpty()) {
+            resultFuture.complete(members); // Пустой список, если нет ID для поиска
+            return resultFuture;
+        }
+
+        CompletableFuture<?>[] futures = new CompletableFuture[memberIds.size()];
+
+        for (int i = 0; i < memberIds.size(); i++) {
+            final int index = i;
+            Long memberId = memberIds.get(index);
+            CompletableFuture<Member> memberFuture = new CompletableFuture<>();
+            futures[i] = memberFuture;
+
+            // Преобразуем Long ID обратно в String для retrieveMemberById
+            server.retrieveMemberById(memberId.toString()).queue(
+                    member -> {
+                        synchronized (members) {
+                            members.add(member);
+                        }
+                        memberFuture.complete(member);
+                    },
+                    failure -> {
+                        System.err.println("Не удалось получить информацию о участнике с ID: " + memberId);
+                        memberFuture.completeExceptionally(failure);
+                    }
+            );
+        }
+
+        CompletableFuture.allOf(futures).thenRun(() -> {
+            resultFuture.complete(members);
+        }).exceptionally(e -> {
+            resultFuture.completeExceptionally(e);
+            return null;
+        });
+
+        return resultFuture;
+    }
+
+    public CompletableFuture<Member> getMemberByRole(long roleId) {
+        CompletableFuture<Member> resultFuture = new CompletableFuture<>();
+
+        if (server == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return resultFuture;
+        }
+
+        Role role = server.getRoleById(roleId);
+        if (role == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
+            return resultFuture;
+        }
+
+        server.loadMembers().onSuccess(members -> {
+            Member member = members.stream()
+                    .filter(m -> m.getRoles().contains(role))
+                    .findFirst()
+                    .orElse(null);
+            if (member != null) {
+                resultFuture.complete(member);
+            } else {
+                resultFuture.completeExceptionally(new IllegalArgumentException("Нет участников с такой ролью"));
+            }
+        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+
+        return resultFuture;
     }
 
     public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
-        return CompletableFuture.supplyAsync(() -> {
-            CompletableFuture<List<Member>> internalFuture = new CompletableFuture<>();
-            if (server == null) {
-                internalFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
-                return Collections.emptyList();
-            }
-            Role role = server.getRoleById(roleId);
-            if (role == null) {
-                internalFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
-                return Collections.emptyList();
-            }
-            server.loadMembers()
-                    .onSuccess(members -> {
-                        List<Member> filteredMembers = members.stream()
-                                .filter(member -> member.getRoles().contains(role))
-                                .collect(Collectors.toList());
-                        internalFuture.complete(filteredMembers);
-                    })
-                    .onError(e ->
-                            internalFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e))
-                    );
-            try {
-                return internalFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
+        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
 
+        if (server == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return resultFuture;
+        }
+
+        Role role = server.getRoleById(roleId);
+        if (role == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
+            return resultFuture;
+        }
+
+        server.loadMembers().onSuccess(members -> {
+            List<Member> filteredMembers = members.stream()
+                    .filter(member -> member.getRoles().contains(role))
+                    .collect(Collectors.toList());
+            resultFuture.complete(filteredMembers);
+        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+
+        return resultFuture;
+    }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
-        CompletableFuture<Message> future = new CompletableFuture<>();
+        CompletableFuture<Message> resultFuture = new CompletableFuture<>();
 
-        channel.getHistory().retrievePast(index + 1).queue((messages) -> {
+        channel.getHistory().retrievePast(index + 1).queue(messages -> {
             if (messages.size() > index) {
-                future.complete(messages.get(index));
+                resultFuture.complete(messages.get(index));
             } else {
-                future.completeExceptionally(new IllegalArgumentException("Недостаточно сообщений в канале"));
+                resultFuture.completeExceptionally(new IllegalArgumentException("Недостаточно сообщений в канале"));
             }
-        }, future::completeExceptionally);
+        }, error -> {
+            if (error instanceof Exception) {
+                resultFuture.completeExceptionally((Exception) error);
+            } else {
+                resultFuture.completeExceptionally(new Exception(error));
+            }
+        });
 
-        return future;
+        return resultFuture;
     }
-
 
     public CompletableFuture<Category> getCategoryByID(long id) {
         CompletableFuture<Category> future = new CompletableFuture<>();
@@ -137,20 +197,13 @@ public class ApiService {
         return future;
     }
 
-    public void addRoleToMembers(Map<Member, Long> memberToRoleMap, Runnable callback) {
+    public CompletableFuture<Boolean> addRoleToMembers(Map<Member, Long> memberToRoleMap) {
         if (memberToRoleMap == null || memberToRoleMap.isEmpty()) {
             System.err.println("Словарь участников и ролей пуст или не предоставлен.");
-            if (callback != null) {
-                callback.run();
-            }
-            return;
+            return CompletableFuture.completedFuture(true); // Предполагаем, что пустой список - это успех
         }
 
-        final int[] totalOperations = {0};
-        final int[] completedOperations = {0};
-
-        // Устанавливаем общее количество операций на размер словаря.
-        totalOperations[0] = memberToRoleMap.size();
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
 
         for (Map.Entry<Member, Long> entry : memberToRoleMap.entrySet()) {
             Member member = entry.getKey();
@@ -158,38 +211,35 @@ public class ApiService {
 
             if (member == null) {
                 System.err.println("Один из участников является null.");
-                completedOperations[0]++;
+                futures.add(CompletableFuture.completedFuture(false));
                 continue;
             }
 
             Role role = server.getRoleById(roleId);
             if (role == null) {
                 System.err.println("Роль с ID " + roleId + " не найдена на сервере.");
-                completedOperations[0]++;
+                futures.add(CompletableFuture.completedFuture(false));
                 continue;
             }
 
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
             server.addRoleToMember(member, role).queue(
-                    success -> {
-                        completedOperations[0]++;
-                        if (completedOperations[0] == totalOperations[0] && callback != null) {
-                            callback.run();
-                        }
-                    },
+                    success -> future.complete(true),
                     failure -> {
                         System.err.println("Не удалось выдать роль " + role.getName() + " участнику: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
-                        completedOperations[0]++;
-                        if (completedOperations[0] == totalOperations[0] && callback != null) {
-                            callback.run();
-                        }
+                        future.complete(false);
                     }
             );
+            futures.add(future);
         }
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, были ли все операции успешны
     }
 
 
-    public CompletableFuture<Void> removeRoleFromUser(String userId, long roleId) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
+    public CompletableFuture<Boolean> removeRoleFromUser(String userId, long roleId) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
         if (server == null) {
             future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
             return future;
@@ -203,27 +253,22 @@ public class ApiService {
 
         server.retrieveMemberById(userId).queue(member -> {
             server.removeRoleFromMember(member, role).queue(
-                    error -> future.completeExceptionally(new IllegalArgumentException("Ошибка при удалении роли: " + error)) // Ошибка при удалении роли
+                    success -> future.complete(true), // Успешное выполнение
+                    error -> future.complete(false) // В случае ошибки возвращаем false, но не исключение
             );
         }, error -> future.completeExceptionally(new IllegalArgumentException("Пользователь с таким ID не найден: " + error.getMessage())));
 
         return future;
     }
 
-    public void removeRoleFromUsers(Map<Member, Long> memberToRoleMap, Runnable callback) {
+
+    public CompletableFuture<Boolean> removeRoleFromUsers(Map<Member, Long> memberToRoleMap) {
         if (memberToRoleMap == null || memberToRoleMap.isEmpty()) {
             System.err.println("Словарь участников и ролей пуст или не предоставлен.");
-            if (callback != null) {
-                callback.run();
-            }
-            return;
+            return CompletableFuture.completedFuture(false); // Изменено на false, так как не было выполнено никаких операций
         }
 
-        final int[] totalOperations = {0};
-        final int[] completedOperations = {0};
-
-        // Устанавливаем общее количество операций на размер словаря.
-        totalOperations[0] = memberToRoleMap.size();
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
 
         for (Map.Entry<Member, Long> entry : memberToRoleMap.entrySet()) {
             Member member = entry.getKey();
@@ -231,37 +276,34 @@ public class ApiService {
 
             if (member == null) {
                 System.err.println("Один из участников является null.");
-                completedOperations[0]++;
                 continue;
             }
 
             Role role = server.getRoleById(roleId);
             if (role == null) {
                 System.err.println("Роль с ID " + roleId + " не найдена на сервере.");
-                completedOperations[0]++;
                 continue;
             }
 
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
             server.removeRoleFromMember(member, role).queue(
-                    success -> {
-                        completedOperations[0]++;
-                        if (completedOperations[0] == totalOperations[0] && callback != null) {
-                            callback.run();
-                        }
-                    },
+                    success -> future.complete(true), // Операция успешно завершена
                     failure -> {
-                        System.err.println("Не удалось удалить роль " + role.getName() + " участнику: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
-                        completedOperations[0]++;
-                        if (completedOperations[0] == totalOperations[0] && callback != null) {
-                            callback.run();
-                        }
+                        System.err.println("Не удалось удалить роль " + role.getName() + " у участника: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
+                        future.complete(false); // Операция завершилась с ошибкой
                     }
             );
+            futures.add(future);
         }
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, все ли будущие задачи были успешны
     }
 
 
-    public void showEphemeralLoading(@NotNull ButtonInteractionEvent event, Consumer<InteractionHook> callback) {
+    public CompletableFuture<InteractionHook> showEphemeralLoading(@NotNull ButtonInteractionEvent event) {
+        CompletableFuture<InteractionHook> resultFuture = new CompletableFuture<>();
+
         if (!event.isAcknowledged()) {
             event.deferReply(true).queue(
                     hook -> {
@@ -269,103 +311,99 @@ public class ApiService {
                                 null,
                                 failure -> {
                                     System.err.println("Не удалось удалить оригинальное сообщение: " + failure.getMessage());
+                                    resultFuture.completeExceptionally(failure);
                                 }
                         );
-                        callback.accept(hook);
+                        resultFuture.complete(hook);
                     },
-                    failure -> System.err.println("Не удалось отложить ответ: " + failure.getMessage())
+                    failure -> {
+                        System.err.println("Не удалось отложить ответ: " + failure.getMessage());
+                        resultFuture.completeExceptionally(failure);
+                    }
             );
         } else {
             System.err.println("Взаимодействие уже обработано");
+            resultFuture.completeExceptionally(new IllegalStateException("Взаимодействие уже обработано"));
         }
+
+        return resultFuture;
     }
 
-
-    public void processingMicrophone(List<Member> members, boolean mute, Runnable callback) {
-        try {
-            if (members.isEmpty()) {
-                if (callback != null) callback.run();
-                return;
-            }
-
-            final int[] counter = {0};
-
-            for (Member member : members) {
-                if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
-                    member.mute(mute).queue(
-                            success -> {
-                                if (++counter[0] == members.size() && callback != null) {
-                                    callback.run();
-                                }
-                            },
-                            failure -> {
-                                System.err.println("Не удалось отключить микрофон у участника: " + member.getEffectiveName());
-                                if (++counter[0] == members.size() && callback != null) {
-                                    callback.run();
-                                }
-                            }
-                    );
-                } else {
-                    System.err.println("Участник не в голосовом канале: " + member.getEffectiveName());
-                    if (++counter[0] == members.size() && callback != null) {
-                        callback.run();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public CompletableFuture<Boolean> processingMicrophone(List<Member> members, boolean mute) {
+        if (members.isEmpty()) {
+            return CompletableFuture.completedFuture(true); // Список участников пуст, считаем операцию успешной
         }
-    }
 
-
-    public void moveMembers(List<Member> members, VoiceChannel targetChannel, Runnable callback) {
-        try {
-            if (members.isEmpty()) {
-                callback.run();
-                return;
-            }
-
-            final int[] counter = {0};
-
-            for (Member member : members) {
-                member.getGuild().moveVoiceMember(member, targetChannel).queue(
-                        success -> {
-                            if (++counter[0] == members.size()) {
-                                callback.run();
-                            }
-                        },
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        for (Member member : members) {
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
+                member.mute(mute).queue(
+                        success -> future.complete(true), // Операция успешно выполнена
                         failure -> {
-                            System.err.println("Не удалось переместить участника: " + member.getEffectiveName());
-                            if (++counter[0] == members.size()) {
-                                callback.run();
-                            }
+                            System.err.println("Не удалось отключить микрофон у участника: " + member.getEffectiveName());
+                            future.complete(false); // Операция не удалась
                         }
                 );
+            } else {
+                System.err.println("Участник не в голосовом канале: " + member.getEffectiveName());
+                future.complete(true); // Считаем, что операция успешна, даже если участник не в канале
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+            futures.add(future);
         }
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, все ли операции были успешны
     }
 
 
-    public void deleteVoiceChannels(List<VoiceChannel> channels, Runnable callback) {
-        CompletableFuture[] futures = new CompletableFuture[channels.size()];
-
-        for (int i = 0; i < channels.size(); i++) {
-            VoiceChannel channel = channels.get(i);
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            futures[i] = future;
-
-            channel.delete().queue(
-                    success -> future.complete(null),
-                    error -> {
-                        System.err.println("Ошибка при удалении канала: " + channel.getName() + "; причина: " + error.getMessage());
-                        future.completeExceptionally(error);
-                    }
-            );
+    public CompletableFuture<Boolean> moveMembers(List<Member> members, VoiceChannel targetChannel) {
+        if (members.isEmpty()) {
+            return CompletableFuture.completedFuture(true); // Список участников пуст, считаем операцию успешной
         }
 
-        CompletableFuture.allOf(futures).thenRun(callback);
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        for (Member member : members) {
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            member.getGuild().moveVoiceMember(member, targetChannel).queue(
+                    success -> future.complete(true), // Операция успешно выполнена
+                    failure -> {
+                        System.err.println("Не удалось переместить участника: " + member.getEffectiveName() + ". Причина: " + failure.getMessage());
+                        future.complete(false); // Операция не удалась
+                    }
+            );
+            futures.add(future);
+        }
+
+        // Объединяем все будущие результаты и проверяем, были ли все операции успешны
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Возвращаем true, если все операции успешны
+    }
+
+
+    public CompletableFuture<Boolean> deleteVoiceChannels(List<VoiceChannel> channels) {
+        if (channels.isEmpty()) {
+            return CompletableFuture.completedFuture(true); // Список каналов пуст, считаем операцию успешной
+        }
+
+        List<CompletableFuture<Boolean>> futuresList = new ArrayList<>();
+        for (VoiceChannel channel : channels) {
+            // Преобразовываем каждую операцию удаления в CompletableFuture<Boolean>, отражающий успех операции
+            CompletableFuture<Boolean> future = channel.delete().submit()
+                    .toCompletableFuture()
+                    .thenApply(result -> true) // В случае успеха возвращаем true
+                    .exceptionally(ex -> {
+                        System.err.println("Не удалось удалить голосовой канал: " + channel.getName() + ", ошибка: " + ex.getMessage());
+                        return false; // В случае исключения возвращаем false
+                    });
+            futuresList.add(future);
+        }
+
+        // Преобразуем List в массив CompletableFuture<?> для использования с CompletableFuture.allOf()
+        CompletableFuture<Boolean>[] futuresArray = futuresList.toArray(new CompletableFuture[0]);
+
+        return CompletableFuture.allOf(futuresArray)
+                .thenApply(v -> futuresList.stream().allMatch(CompletableFuture::join)); // Проверяем, все ли операции были успешны
     }
 
 

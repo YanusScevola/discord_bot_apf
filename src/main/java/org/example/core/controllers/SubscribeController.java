@@ -24,8 +24,7 @@ import org.example.resources.StringRes;
 import org.example.core.constants.CategoriesID;
 import org.example.core.constants.RolesID;
 import org.example.core.constants.TextChannelsID;
-import org.example.data.repository.ApiRepository;
-import org.example.data.repository.DbRepository;
+import org.example.domain.UseCase;
 import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
@@ -40,8 +39,7 @@ public class SubscribeController {
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
     private final TextChannel channel;
-    private final ApiRepository apiRepository;
-    private final DbRepository dbRepository;
+    private final UseCase useCase;
     private final StringRes stringsRes;
 
     private final List<Long> debaterRoles;
@@ -54,11 +52,10 @@ public class SubscribeController {
     public DebateController debateController;
     private ScheduledFuture<?> debateStartTask;
 
-    public SubscribeController(ApiRepository apiRepository, DbRepository dbRepository, StringRes stringsRes) {
-        this.apiRepository = apiRepository;
-        this.dbRepository = dbRepository;
+    public SubscribeController(UseCase useCase, StringRes stringsRes) {
+        this.useCase = useCase;
         this.stringsRes = stringsRes;
-        this.channel = apiRepository.getTextChannel(TextChannelsID.SUBSCRIBE);
+        this.channel = useCase.getTextChannel(TextChannelsID.SUBSCRIBE);
 
         debaterRoles = List.of(
                 RolesID.HEAD_GOVERNMENT,
@@ -126,7 +123,7 @@ public class SubscribeController {
     }
 
     private void onClickDebaterSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
-        apiRepository.showEphemeralLoading(event, (message) -> {
+        useCase.showEphemeralLoading(event).thenAccept(message -> {
             if (event.getMember() == null) return;
 
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
@@ -156,7 +153,7 @@ public class SubscribeController {
     }
 
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
-        apiRepository.showEphemeralLoading(event, (message) -> {
+        useCase.showEphemeralLoading(event).thenAccept(message -> {
             if (event.getMember() == null) return;
 
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
@@ -181,7 +178,7 @@ public class SubscribeController {
     }
 
     private void onClickUnsubscribe(ButtonInteractionEvent event, Member member) {
-        apiRepository.showEphemeralLoading(event, (message) -> {
+        useCase.showEphemeralLoading(event).thenAccept(message -> {
             channel.getHistoryFromBeginning(1).queue(history -> {
                 if (history.isEmpty()) {
                     message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NEED_SUBSCRIBED)).queue();
@@ -236,12 +233,12 @@ public class SubscribeController {
     private void finalizeDebateStart() {
         timerForStartDebate = 0;
         isDebateStarted = true;
-        debateController = new DebateController(apiRepository, dbRepository, stringsRes, this);
+        debateController = new DebateController(useCase, stringsRes, this);
         setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> createVoiceChannels(voiceChannelsNames));
     }
 
     private void createVoiceChannels(List<String> channelNames) {
-        Category category = apiRepository.getCategoryByID(CategoriesID.DEBATE_CATEGORY).join();
+        Category category = useCase.getCategoryByID(CategoriesID.DEBATE_CATEGORY).join();
         if (category != null) {
             Guild guild = category.getGuild();
             Role everyoneRole = guild.getPublicRole();
@@ -291,7 +288,7 @@ public class SubscribeController {
                         });
             }
         } else {
-//            Utils.sendLogError(apiRepository, "createVoiceChannels", "Категория не найдена. Проверьте ID.");
+//            Utils.sendLogError(useCase, "createVoiceChannels", "Категория не найдена. Проверьте ID.");
         }
     }
 
@@ -308,8 +305,10 @@ public class SubscribeController {
 
         for (int i = 0; i < JUDGES_LIMIT; i++) judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
 
-        apiRepository.addRolesToMembers(membersToRolesMap, () -> {
-            apiRepository.addRolesToMembers(judgesToRolesMap, callback);
+        useCase.addRolesToMembers(membersToRolesMap).thenAccept(success -> {
+            useCase.addRolesToMembers(judgesToRolesMap).thenAccept(success1 -> {
+                if (callback != null && success && success1) callback.run();
+            });
         });
     }
 
@@ -320,14 +319,14 @@ public class SubscribeController {
             AudioManager audioManager = guild.getAudioManager();
             if (!audioManager.isConnected()) {
                 audioManager.openAudioConnection(channel);
-//                Utils.sendLogDebug(apiRepository, "joinVoiceChannel", "Бот подключен к голосовому каналу: " +
+//                Utils.sendLogDebug(useCase, "joinVoiceChannel", "Бот подключен к голосовому каналу: " +
 //                channel.getName());
             } else {
-//                Utils.sendLogError(apiRepository, "joinVoiceChannel", "Бот уже находится в голосовом канале или
+//                Utils.sendLogError(useCase, "joinVoiceChannel", "Бот уже находится в голосовом канале или
 //                пытается подключиться.");
             }
         } else {
-//            Utils.sendLogError(apiRepository, "joinVoiceChannel", "Голосовой канал не найден.");
+//            Utils.sendLogError(useCase, "joinVoiceChannel", "Голосовой канал не найден.");
         }
     }
 

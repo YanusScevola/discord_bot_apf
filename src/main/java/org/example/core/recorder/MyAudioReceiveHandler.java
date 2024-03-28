@@ -1,4 +1,4 @@
-package org.example.recorder;
+package org.example.core.recorder;
 
 import net.dv8tion.jda.api.audio.AudioReceiveHandler;
 import net.dv8tion.jda.api.audio.CombinedAudio;

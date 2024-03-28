@@ -5,9 +5,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.example.data.source.Database;
-
-import java.util.Properties;
+import org.example.data.source.db.Database;
 
 public class Main {
     public static void main(String[] args) {

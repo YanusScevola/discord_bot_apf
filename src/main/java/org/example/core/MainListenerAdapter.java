@@ -7,18 +7,18 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import org.example.data.source.ApiService;
+import org.example.data.source.db.Database;
 import org.example.resources.StringRes;
 import org.example.core.constants.TextChannelsID;
-import org.example.data.repository.ApiRepository;
-import org.example.data.repository.DbRepository;
+import org.example.domain.UseCase;
 import org.example.core.constants.VoiceChannelsID;
 import org.example.core.controllers.RatingController;
 import org.example.core.controllers.SubscribeController;
 import org.jetbrains.annotations.NotNull;
 
 public class MainListenerAdapter extends ListenerAdapter {
-    ApiRepository apiRepository;
-    DbRepository dbRepository;
+
     RatingController ratingTextChat;
     SubscribeController subscribeTextChat;
     StringRes stringsRes;
@@ -26,10 +26,12 @@ public class MainListenerAdapter extends ListenerAdapter {
     public void onReady(@NotNull ReadyEvent event) {
         stringsRes = new StringRes("ru");
 
-        apiRepository = new ApiRepository(event.getJDA());
-        dbRepository = new DbRepository();
-        ratingTextChat = new RatingController(apiRepository, dbRepository);
-        subscribeTextChat = new SubscribeController(apiRepository, dbRepository, stringsRes);
+        ApiService apiService = ApiService.getInstance(event.getJDA());
+        Database database = Database.getInstance();
+        UseCase useCase = UseCase.getInstance(apiService, database);
+
+        ratingTextChat = new RatingController(useCase);
+        subscribeTextChat = new SubscribeController(useCase, stringsRes);
     }
 
     @Override
@@ -59,8 +61,6 @@ public class MainListenerAdapter extends ListenerAdapter {
                 subscribeTextChat.debateController.onLeaveFromTribuneVoiceChannel(event.getGuild(), channelJoined, event.getMember());
             }
         }
-
-
     }
 
 
@@ -92,15 +92,5 @@ public class MainListenerAdapter extends ListenerAdapter {
             }
         }
     }
-
-    private boolean isDebateChannel(AudioChannel channel) {
-        if (channel == null) return false;
-        String channelName = channel.getName();
-        return channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE)) ||
-                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE)) ||
-                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_GOVERNMENT)) ||
-                channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION));
-    }
-
 
 }
