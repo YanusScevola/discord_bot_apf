@@ -5,12 +5,15 @@ import java.util.List;
 
 public class DebateModel {
     private long id;
+    private int themeId;
     private List<Long> governmentMembersIds;
     private List<Long> oppositionMembersIds;
     private LocalDateTime startDateTime;
     private boolean isGovernmentWinner;
 
-    public DebateModel() {}
+    public DebateModel() {
+    }
+
     public DebateModel(long id, List<Long> convertStringToListId, List<Long> convertStringToListId1, LocalDateTime toLocalDateTime, boolean aBoolean) {
         this.id = id;
         this.governmentMembersIds = convertStringToListId;
@@ -25,6 +28,14 @@ public class DebateModel {
 
     public void setId(long id) {
         this.id = id;
+    }
+
+    public int getThemeId() {
+        return themeId;
+    }
+
+    public void setThemeId(int themeId) {
+        this.themeId = themeId;
     }
 
     public List<Long> getGovernmentMembersIds() {
@@ -63,6 +74,7 @@ public class DebateModel {
     public String toString() {
         return "DebateAPF{" +
                 "id='" + id + '\'' +
+                ", themeId=" + themeId +
                 ", governmentUsersIds=" + governmentMembersIds +
                 ", oppositionUsersIds=" + oppositionMembersIds +
                 ", dateTime=" + startDateTime +

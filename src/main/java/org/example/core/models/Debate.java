@@ -7,6 +7,7 @@ import java.util.List;
 
 public class Debate {
     private long id;
+    private Theme theme;
     private List<Member> governmentDebaters;
     private List<Member> oppositionDebaters;
     private LocalDateTime endDateTime;
@@ -18,6 +19,14 @@ public class Debate {
 
     public void setId(long id) {
         this.id = id;
+    }
+
+    public Theme getTheme() {
+        return theme;
+    }
+
+    public void setTheme(Theme theme) {
+        this.theme = theme;
     }
 
     public List<Member> getGovernmentDebaters() {

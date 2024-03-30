@@ -2,6 +2,7 @@ package org.example.data.source.db;
 
 import org.example.data.models.DebateModel;
 import org.example.data.models.DebaterModel;
+import org.example.data.models.ThemeModel;
 
 import java.sql.*;
 import java.util.*;
@@ -86,6 +87,94 @@ public class DbOperations {
         return resultFuture;
     }
 
+    public CompletableFuture<ThemeModel> getTheme(long themeId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM " + DbConstants.TABLE_THEMES + " WHERE " +
+                    DbConstants.COLUMN_THEMES_ID + " = ?;";
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                statement.setLong(1, themeId);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        return new ThemeModel(
+                                rs.getInt(DbConstants.COLUMN_THEMES_ID),
+                                rs.getString(DbConstants.COLUMN_THEMES_NAME),
+                                rs.getInt(DbConstants.COLUMN_THEMES_USAGE_COUNT)
+                        );
+                    } else {
+                        throw new CompletionException(new NoSuchElementException("Theme with ID " + themeId + " not found"));
+                    }
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении ApfTheme", e);
+                throw new CompletionException(e);
+            }
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные ApfTheme", e);
+            return null;
+        });
+    }
+
+    public CompletableFuture<List<ThemeModel>> getThemes(List<Integer> themeIds) {
+        if (themeIds == null || themeIds.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            String placeholders = themeIds.stream()
+                    .map(id -> "?")
+                    .collect(Collectors.joining(","));
+            String sql = "SELECT * FROM " + DbConstants.TABLE_THEMES + " WHERE " +
+                    DbConstants.COLUMN_THEMES_ID + " IN (" + placeholders + ");";
+            List<ThemeModel> results = new ArrayList<>();
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                int index = 1;
+                for (Integer id : themeIds) {
+                    statement.setInt(index++, id);
+                }
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        ThemeModel result = new ThemeModel(
+                                rs.getInt(DbConstants.COLUMN_THEMES_ID),
+                                rs.getString(DbConstants.COLUMN_THEMES_NAME),
+                                rs.getInt(DbConstants.COLUMN_THEMES_USAGE_COUNT)
+                        );
+                        results.add(result);
+                    }
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении списка ApfTheme", e);
+                throw new CompletionException(e);
+            }
+            return results;
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные ApfTheme", e);
+            return Collections.emptyList();
+        });
+    }
+
+    public CompletableFuture<ThemeModel> getRandomTheme() {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM " + DbConstants.TABLE_THEMES + " ORDER BY " + DbConstants.COLUMN_THEMES_USAGE_COUNT + " ASC, RAND() LIMIT 1;";
+            try (Statement statement = db.getConnection().createStatement();
+                 ResultSet rs = statement.executeQuery(sql)) {
+                if (rs.next()) {
+                    return new ThemeModel(
+                            rs.getInt(DbConstants.COLUMN_THEMES_ID),
+                            rs.getString(DbConstants.COLUMN_THEMES_NAME),
+                            rs.getInt(DbConstants.COLUMN_THEMES_USAGE_COUNT)
+                    );
+                } else {
+                    throw new CompletionException(new NoSuchElementException("No themes found"));
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении случайной темы", e);
+                throw new CompletionException(e);
+            }
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные случайной темы", e);
+            return null;
+        });
+    }
 
     public CompletableFuture<List<DebaterModel>> getDebatersByMemberIds(List<Long> memberIds) {
         if (memberIds == null || memberIds.isEmpty()) {
@@ -216,6 +305,34 @@ public class DbOperations {
                         );
                     } else {
                         throw new CompletionException(new NoSuchElementException("Debate with ID " + debateId + " not found"));
+                    }
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении ApfDebate", e);
+                throw new CompletionException(e);
+            }
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные ApfDebate", e);
+            return null;
+        });
+    }
+
+    public CompletableFuture<DebateModel> getLastDebate() {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM " + DbConstants.TABLE_APF_DEBATES + " ORDER BY " +
+                    DbConstants.COLUMN_DEBATES_DATE_TIME + " DESC LIMIT 1;";
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        return new DebateModel(
+                                rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
+                                rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
+                                rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
+                        );
+                    } else {
+                        throw new CompletionException(new NoSuchElementException("No debates found"));
                     }
                 }
             } catch (SQLException e) {

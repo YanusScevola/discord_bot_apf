@@ -29,7 +29,7 @@ public class MainListenerAdapter extends ListenerAdapter {
         ApiService apiService = ApiService.getInstance(event.getJDA());
         UseCase useCase = UseCase.getInstance(apiService, new DbOperations());
 
-        ratingTextChat = new RatingController(useCase);
+//        ratingTextChat = new RatingController(useCase);
         subscribeTextChat = new SubscribeController(useCase, stringsRes);
     }
 

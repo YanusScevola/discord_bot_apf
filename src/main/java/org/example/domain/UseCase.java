@@ -11,8 +11,10 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.core.models.Debate;
 import org.example.core.models.Debater;
+import org.example.core.models.Theme;
 import org.example.data.models.DebateModel;
 import org.example.data.models.DebaterModel;
+import org.example.data.models.ThemeModel;
 import org.example.data.source.ApiService;
 import org.example.data.source.db.DbOperations;
 import org.jetbrains.annotations.NotNull;
@@ -101,6 +103,26 @@ public class UseCase {
         return apiService.deleteVoiceChannels(channels);
     }
 
+    public CompletableFuture<Theme> getTheme(int themeId) {
+        return dataBase.getTheme(themeId).thenApply(themeModel -> {
+            Theme theme = new Theme();
+            theme.setId(themeModel.getId());
+            theme.setName(themeModel.getName());
+            theme.setUsageCount(themeModel.getUsageCount());
+            return theme;
+        });
+    }
+
+    public CompletableFuture<Theme> getRandomTheme() {
+        return dataBase.getRandomTheme().thenApply(themeModel -> {
+            Theme theme = new Theme();
+            theme.setId(themeModel.getId());
+            theme.setName(themeModel.getName());
+            theme.setUsageCount(themeModel.getUsageCount());
+            return theme;
+        });
+    }
+
     public CompletableFuture<List<Debater>> getAllDebaters() {
         CompletableFuture<List<Debater>> result = new CompletableFuture<>();
 
@@ -185,7 +207,6 @@ public class UseCase {
         return result;
     }
 
-
     public CompletableFuture<Debater> getDebater(int memberId) {
         return dataBase.getDebater(memberId).thenApply(debaterModel -> {
             Debater debater = new Debater();
@@ -227,26 +248,27 @@ public class UseCase {
             List<Debate> debates = new ArrayList<>();
             List<Long> allGovernmentMembersIds = new ArrayList<>();
             List<Long> allOppositionMembersIds = new ArrayList<>();
+            List<Integer> allThemesIds = new ArrayList<>();
 
             for (DebateModel debateModel : debateModels) {
                 allGovernmentMembersIds.addAll(debateModel.getGovernmentMembersIds());
                 allOppositionMembersIds.addAll(debateModel.getOppositionMembersIds());
+                allThemesIds.add(debateModel.getThemeId());
             }
 
             CompletableFuture<List<Member>> governmentMembersFuture = apiService.getMembersByIds(allGovernmentMembersIds);
             CompletableFuture<List<Member>> oppositionMembersFuture = apiService.getMembersByIds(allOppositionMembersIds);
+            CompletableFuture<List<ThemeModel>> themesFuture = dataBase.getThemes(allThemesIds);
             CompletableFuture<Void> allFutures = CompletableFuture.allOf(governmentMembersFuture, oppositionMembersFuture);
 
             allFutures.thenAccept((v) -> {
                 try {
                     List<Member> allGovernmentMembers = governmentMembersFuture.get();
                     List<Member> allOppositionMembers = oppositionMembersFuture.get();
+                    List<ThemeModel> allThemes = themesFuture.get();
 
                     for (DebateModel debateModel : debateModels) {
                         Debate debate = new Debate();
-                        debate.setId(debateModel.getId());
-                        debate.setEndDateTime(debateModel.getStartDateTime());
-                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
 
                         List<Member> governmentMembers = new ArrayList<>();
                         for (long memberId : debateModel.getGovernmentMembersIds()) {
@@ -257,7 +279,6 @@ public class UseCase {
                                 }
                             }
                         }
-                        debate.setGovernmentDebaters(governmentMembers);
 
                         List<Member> oppositionMembers = new ArrayList<>();
                         for (long memberId : debateModel.getOppositionMembersIds()) {
@@ -268,6 +289,22 @@ public class UseCase {
                                 }
                             }
                         }
+
+                        ThemeModel themeModel = allThemes.stream()
+                                .filter(theme -> theme.getId() == debateModel.getThemeId())
+                                .findFirst()
+                                .orElse(null);
+
+                        Theme theme = new Theme();
+                        theme.setId(themeModel != null ? themeModel.getId() : 0);
+                        theme.setName(themeModel != null ? themeModel.getName() : "");
+                        theme.setUsageCount(themeModel != null ? themeModel.getUsageCount() : 0);
+
+                        debate.setId(debateModel.getId());
+                        debate.setTheme(theme);
+                        debate.setEndDateTime(debateModel.getStartDateTime());
+                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
+                        debate.setGovernmentDebaters(governmentMembers);
                         debate.setOppositionDebaters(oppositionMembers);
 
                         debates.add(debate);
@@ -294,24 +331,25 @@ public class UseCase {
         return dataBase.getDebatesByMemberId(memberId).thenCompose(debateModels -> {
             List<Long> allGovernmentMembersIds = new ArrayList<>();
             List<Long> allOppositionMembersIds = new ArrayList<>();
+            List<Integer> allThemesIds = new ArrayList<>();
 
             for (DebateModel debateModel : debateModels) {
                 allGovernmentMembersIds.addAll(debateModel.getGovernmentMembersIds());
                 allOppositionMembersIds.addAll(debateModel.getOppositionMembersIds());
+                allThemesIds.add(debateModel.getThemeId());
             }
 
             CompletableFuture<List<Member>> governmentMembersFuture = apiService.getMembersByIds(allGovernmentMembersIds);
             CompletableFuture<List<Member>> oppositionMembersFuture = apiService.getMembersByIds(allOppositionMembersIds);
+            CompletableFuture<List<ThemeModel>> themesFuture = dataBase.getThemes(allThemesIds);
             return CompletableFuture.allOf(governmentMembersFuture, oppositionMembersFuture).thenApply(v -> {
                 try {
                     List<Member> allGovernmentMembers = governmentMembersFuture.get();
                     List<Member> allOppositionMembers = oppositionMembersFuture.get();
+                    List<ThemeModel> allThemes = themesFuture.get();
 
                     for (DebateModel debateModel : debateModels) {
                         Debate debate = new Debate();
-                        debate.setId(debateModel.getId());
-                        debate.setEndDateTime(debateModel.getStartDateTime());
-                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
 
                         List<Member> governmentMembers = new ArrayList<>();
                         for (long memberId1 : debateModel.getGovernmentMembersIds()) {
@@ -322,7 +360,6 @@ public class UseCase {
                                 }
                             }
                         }
-                        debate.setGovernmentDebaters(governmentMembers);
 
                         List<Member> oppositionMembers = new ArrayList<>();
                         for (long memberId1 : debateModel.getOppositionMembersIds()) {
@@ -334,6 +371,21 @@ public class UseCase {
                             }
                         }
 
+                        ThemeModel themeModel = allThemes.stream()
+                                .filter(theme -> theme.getId() == debateModel.getThemeId())
+                                .findFirst()
+                                .orElse(null);
+
+                        Theme theme = new Theme();
+                        theme.setId(themeModel != null ? themeModel.getId() : 0);
+                        theme.setName(themeModel != null ? themeModel.getName() : "");
+                        theme.setUsageCount(themeModel != null ? themeModel.getUsageCount() : 0);
+
+                        debate.setId(debateModel.getId());
+                        debate.setTheme(theme);
+                        debate.setEndDateTime(debateModel.getStartDateTime());
+                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
+                        debate.setGovernmentDebaters(governmentMembers);
                         debate.setOppositionDebaters(oppositionMembers);
 
                         debates.add(debate);
@@ -349,29 +401,30 @@ public class UseCase {
         });
     }
 
-    public CompletableFuture<List<Debate>> getDebatesByMemberId(List<Long> memberIds) {
+    public CompletableFuture<List<Debate>> getDebatesByMemberIds(List<Long> memberIds) {
         List<Debate> debates = new ArrayList<>();
         return dataBase.getDebatesByMemberId(memberIds).thenCompose(debateModels -> {
             List<Long> allGovernmentMembersIds = new ArrayList<>();
             List<Long> allOppositionMembersIds = new ArrayList<>();
+            List<Integer> allThemesIds = new ArrayList<>();
 
             for (DebateModel debateModel : debateModels) {
                 allGovernmentMembersIds.addAll(debateModel.getGovernmentMembersIds());
                 allOppositionMembersIds.addAll(debateModel.getOppositionMembersIds());
+                allThemesIds.add(debateModel.getThemeId());
             }
 
             CompletableFuture<List<Member>> governmentMembersFuture = apiService.getMembersByIds(allGovernmentMembersIds);
             CompletableFuture<List<Member>> oppositionMembersFuture = apiService.getMembersByIds(allOppositionMembersIds);
+            CompletableFuture<List<ThemeModel>> themesFuture = dataBase.getThemes(allThemesIds);
             return CompletableFuture.allOf(governmentMembersFuture, oppositionMembersFuture).thenApply(v -> {
                 try {
                     List<Member> allGovernmentMembers = governmentMembersFuture.get();
                     List<Member> allOppositionMembers = oppositionMembersFuture.get();
+                    List<ThemeModel> allThemes = themesFuture.get();
 
                     for (DebateModel debateModel : debateModels) {
                         Debate debate = new Debate();
-                        debate.setId(debateModel.getId());
-                        debate.setEndDateTime(debateModel.getStartDateTime());
-                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
 
                         List<Member> governmentMembers = new ArrayList<>();
                         for (long memberId1 : debateModel.getGovernmentMembersIds()) {
@@ -382,7 +435,6 @@ public class UseCase {
                                 }
                             }
                         }
-                        debate.setGovernmentDebaters(governmentMembers);
 
                         List<Member> oppositionMembers = new ArrayList<>();
                         for (long memberId1 : debateModel.getOppositionMembersIds()) {
@@ -394,6 +446,21 @@ public class UseCase {
                             }
                         }
 
+                        ThemeModel themeModel = allThemes.stream()
+                                .filter(theme -> theme.getId() == debateModel.getThemeId())
+                                .findFirst()
+                                .orElse(null);
+
+                        Theme theme = new Theme();
+                        theme.setId(themeModel != null ? themeModel.getId() : 0);
+                        theme.setName(themeModel != null ? themeModel.getName() : "");
+                        theme.setUsageCount(themeModel != null ? themeModel.getUsageCount() : 0);
+
+                        debate.setId(debateModel.getId());
+                        debate.setTheme(theme);
+                        debate.setEndDateTime(debateModel.getStartDateTime());
+                        debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
+                        debate.setGovernmentDebaters(governmentMembers);
                         debate.setOppositionDebaters(oppositionMembers);
 
                         debates.add(debate);
@@ -418,13 +485,16 @@ public class UseCase {
 
             List<Long> allGovernmentMembersIds = debateModel.getGovernmentMembersIds();
             List<Long> allOppositionMembersIds = debateModel.getOppositionMembersIds();
+            int themeId = debateModel.getThemeId();
 
             CompletableFuture<List<Member>> governmentMembersFuture = apiService.getMembersByIds(allGovernmentMembersIds);
             CompletableFuture<List<Member>> oppositionMembersFuture = apiService.getMembersByIds(allOppositionMembersIds);
+            CompletableFuture<ThemeModel> themeFuture = dataBase.getTheme(themeId);
             return CompletableFuture.allOf(governmentMembersFuture, oppositionMembersFuture).thenApply(v -> {
                 try {
                     List<Member> governmentMembers = governmentMembersFuture.get();
                     List<Member> oppositionMembers = oppositionMembersFuture.get();
+                    ThemeModel themeModel = themeFuture.get();
 
                     List<Member> governmentMembersList = new ArrayList<>();
                     for (long memberId : allGovernmentMembersIds) {
@@ -435,7 +505,6 @@ public class UseCase {
                             }
                         }
                     }
-                    debate.setGovernmentDebaters(governmentMembersList);
 
                     List<Member> oppositionMembersList = new ArrayList<>();
                     for (long memberId : allOppositionMembersIds) {
@@ -446,6 +515,14 @@ public class UseCase {
                             }
                         }
                     }
+
+                    Theme theme = new Theme();
+                    theme.setId(themeModel.getId());
+                    theme.setName(themeModel.getName());
+                    theme.setUsageCount(themeModel.getUsageCount());
+
+                    debate.setTheme(theme);
+                    debate.setGovernmentDebaters(governmentMembersList);
                     debate.setOppositionDebaters(oppositionMembersList);
 
                     return debate;
@@ -460,9 +537,69 @@ public class UseCase {
         });
     }
 
+    public CompletableFuture<Debate> getLastDebate() {
+        return dataBase.getLastDebate().thenCompose(debateModel -> {
+            Debate debate = new Debate();
+            debate.setId(debateModel.getId());
+            debate.setEndDateTime(debateModel.getStartDateTime());
+            debate.setIsGovernmentWinner(debateModel.isGovernmentWinner());
+
+            List<Long> allGovernmentMembersIds = debateModel.getGovernmentMembersIds();
+            List<Long> allOppositionMembersIds = debateModel.getOppositionMembersIds();
+            int themeId = debateModel.getThemeId();
+
+            CompletableFuture<List<Member>> governmentMembersFuture = apiService.getMembersByIds(allGovernmentMembersIds);
+            CompletableFuture<List<Member>> oppositionMembersFuture = apiService.getMembersByIds(allOppositionMembersIds);
+            CompletableFuture<ThemeModel> themeFuture = dataBase.getTheme(themeId);
+            return CompletableFuture.allOf(governmentMembersFuture, oppositionMembersFuture).thenApply(v -> {
+                try {
+                    List<Member> governmentMembers = governmentMembersFuture.get();
+                    List<Member> oppositionMembers = oppositionMembersFuture.get();
+                    ThemeModel themeModel = themeFuture.get();
+
+                    List<Member> governmentMembersList = new ArrayList<>();
+                    for (long memberId : allGovernmentMembersIds) {
+                        for (Member member : governmentMembers) {
+                            if (member.getIdLong() == memberId) {
+                                governmentMembersList.add(member);
+                                break;
+                            }
+                        }
+                    }
+
+                    List<Member> oppositionMembersList = new ArrayList<>();
+                    for (long memberId : allOppositionMembersIds) {
+                        for (Member member : oppositionMembers) {
+                            if (member.getIdLong() == memberId) {
+                                oppositionMembersList.add(member);
+                                break;
+                            }
+                        }
+                    }
+
+                    Theme theme = new Theme();
+                    theme.setId(themeModel.getId());
+                    theme.setName(themeModel.getName());
+                    theme.setUsageCount(themeModel.getUsageCount());
+
+                    debate.setTheme(theme);
+                    debate.setGovernmentDebaters(governmentMembersList);
+                    debate.setOppositionDebaters(oppositionMembersList);
+
+                    return debate;
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }).exceptionally(th -> {
+            throw new RuntimeException(th);
+        });
+    }
+
     public CompletableFuture<Debate> addDebate(Debate debate) {
         DebateModel debateModel = new DebateModel();
         debateModel.setId(debate.getId());
+        debateModel.setThemeId(debate.getTheme().getId());
         debateModel.setGovernmentMembersIds(debate.getGovernmentDebaters().stream()
                 .map(Member::getIdLong)
                 .collect(Collectors.toList()));

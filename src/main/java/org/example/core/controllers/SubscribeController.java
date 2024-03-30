@@ -38,6 +38,8 @@ public class SubscribeController {
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
 
+    private final RatingController ratingTextChat;
+    private final HistoryController historyTextChat;
     private final TextChannel channel;
     private final UseCase useCase;
     private final StringRes stringsRes;
@@ -56,6 +58,8 @@ public class SubscribeController {
         this.useCase = useCase;
         this.stringsRes = stringsRes;
         this.channel = useCase.getTextChannel(TextChannelsID.SUBSCRIBE);
+        this.ratingTextChat = RatingController.getInstance(useCase);
+        this.historyTextChat = HistoryController.getInstance(useCase);
 
         debaterRoles = List.of(
                 RolesID.HEAD_GOVERNMENT,
@@ -403,11 +407,14 @@ public class SubscribeController {
             debateStartTask.cancel(true);
         }
 
+        isDebateStarted = false;
+
         subscribeDebatersList.clear();
         subscribeJudgesList.clear();
 
+        historyTextChat.sendDebateTopicMessage();
+        ratingTextChat.displayDebatersList();
         showSubscribeMessage();
-        isDebateStarted = false;
     }
 
     private boolean isMemberNotInWaitingRoom(AudioChannelUnion voiceChannel) {

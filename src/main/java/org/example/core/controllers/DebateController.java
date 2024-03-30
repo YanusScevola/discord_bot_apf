@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.managers.AudioManager;
 import org.example.core.constants.enums.Stage;
 import org.example.core.models.Debate;
 import org.example.core.models.Debater;
+import org.example.core.models.Theme;
 import org.example.domain.UseCase;
 import org.example.core.player.PlayerManager;
 import org.example.resources.StringRes;
@@ -87,6 +88,7 @@ public class DebateController {
     private Winner winner = Winner.NO_WINNER;
     private List<Member> winners = new ArrayList<>();
     private Timer waitingMemberInTribuneTimer;
+    private Theme currentTheme;
 
 
     public DebateController(UseCase useCase, StringRes stringsRes, SubscribeController subscribeController) {
@@ -323,7 +325,7 @@ public class DebateController {
         List<Button> buttons = List.of();
 
         playAudio(guild, "Подготовка дебатеров.mp3", () -> {
-            sendDebateTheme("ЭП хочет отменить традиционное образование в пользу индивидуализированных образовательных траекторий.");
+            sendDebateTheme();
             moveMembers(oppositionDebaters.stream().toList(), oppositionVoiceChannel, () -> {
                 moveMembers(governmentDebaters.stream().toList(), governmentVoiceChannel, () -> {
                     startTimer(currentStageTimer, title, DEBATERS_PREPARATION_TIME, buttons, () -> {
@@ -533,10 +535,12 @@ public class DebateController {
         switch (winner) {
             case GOVERNMENT -> {
                 playAudio(guild, "Победа правительства.mp3", () -> {
+                    System.out.println("Победа правительства");
                     enableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
                         AudioManager audioManager = guild.getAudioManager();
                         if (audioManager.isConnected()) {
                             audioManager.closeAudioConnection();
+                            System.out.println("Остановка аудио");
                             endDebate();
                         } else {
                             System.out.println("Бот уже не находится в голосовом канале.");
@@ -574,10 +578,13 @@ public class DebateController {
         isDebateFinished = true;
     }
 
-    private void sendDebateTheme(String theme) {
-        EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.setTitle("Тема: " + theme).setColor(Color.GREEN);
-        tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
+    private void sendDebateTheme() {
+        useCase.getRandomTheme().thenAccept(theme -> {
+            currentTheme = theme;
+            EmbedBuilder embedBuilder = new EmbedBuilder();
+            embedBuilder.setTitle("Тема: " + currentTheme).setColor(Color.GREEN);
+            tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
+        });
     }
 
     private void startAskOpponent(Guild guild, Member asker, Member answerer) {
@@ -692,7 +699,7 @@ public class DebateController {
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("Голосование:");
         eb.setDescription("За правительство: " + votesForGovernment + "\nЗа оппозицию: " + votesForOpposition);
-        eb.setColor(0xF40C0C);
+        eb.setColor(0x2F51B9);
 
         System.out.println("UPDATE VOTING MESSAGE2");
         votingMessage.editMessageEmbeds(eb.build()).queue();
@@ -710,29 +717,34 @@ public class DebateController {
     }
 
     private void endDebate() {
-        Map<Member, Long> memberToRoleMap = new HashMap<>();
-        judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
+        try {
+            Map<Member, Long> memberToRoleMap = new HashMap<>();
+            judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
 
-        if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
-        if (headOpposition != null) memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
-        if (memberGovernment != null) memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
-        if (memberOpposition != null) memberToRoleMap.put(memberOpposition, RolesID.MEMBER_OPPOSITION);
+            if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
+            if (headOpposition != null) memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
+            if (memberGovernment != null) memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
+            if (memberOpposition != null) memberToRoleMap.put(memberOpposition, RolesID.MEMBER_OPPOSITION);
 
-        useCase.enabledMicrophone(tribuneVoiceChannel.getMembers()).thenAccept(success -> {
-            useCase.removeRoleFromUsers(memberToRoleMap).thenAccept(success1 -> {
-                useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
-                    insertDebaterEndDebateToDb(allDebaters.stream().toList(), () -> {
-                        subscribeController.endDebate();
+            useCase.enabledMicrophone(tribuneVoiceChannel.getMembers()).thenAccept(success -> {
+                useCase.removeRoleFromUsers(memberToRoleMap).thenAccept(success1 -> {
+                    useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
+                        insertDebaterEndDebateToDb(allDebaters.stream().toList(), () -> {
+                            System.out.println("END DEBATE");
+                            subscribeController.endDebate();
+                        });
                     });
                 });
             });
-        });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void insertDebaterEndDebateToDb(List<Member> members, Runnable callback) {
         Debate finishedDebate = getFinishedDebate();
         List<Long> memberIds = members.stream().map(Member::getIdLong).toList();
-
+        finishedDebate.setTheme(currentTheme);
         useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
             finishedDebate.setId(resultDebate.getId());
             useCase.getDebatersByMemberId(memberIds).thenAccept(allDebatersByMember -> {

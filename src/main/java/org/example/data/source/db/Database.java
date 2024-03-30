@@ -18,12 +18,12 @@ public class Database {
             String url = "jdbc:mysql://u5068_AgJsVUDQAd:Q%5E%40mZ7JmQlJ04L4oxHGshasT@172.105.158.16:3306/s5068_debate_club?autoReconnect=true";
             this.connection = DriverManager.getConnection(url, username, password);
 
-            // Создание таблиц, если они еще не созданы
             createVersionTable();
-            checkAndUpdateDatabaseVersion();
-
+            createThemesTable();
             createDebatersTable();
             createDebatesTable();
+
+            checkAndUpdateDatabaseVersion();
         } catch (ClassNotFoundException | SQLException e) {
             logger.debug("Ошибка подключения к БД", e);
         }
@@ -44,6 +44,35 @@ public class Database {
         return logger;
     }
 
+    private void createThemesTable() {
+        executeTableCreation(DbConstants.TABLE_THEMES,
+                "(" + DbConstants.COLUMN_THEMES_ID + " INT NOT NULL AUTO_INCREMENT, " +
+                        DbConstants.COLUMN_THEMES_NAME + " VARCHAR(255), " +
+                        DbConstants.COLUMN_THEMES_USAGE_COUNT + " INT DEFAULT 0, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_THEMES_ID + "));");
+    }
+
+    private void createDebatersTable() {
+        executeTableCreation(DbConstants.TABLE_APF_DEBATERS,
+                "(" + DbConstants.COLUMN_DEBATERS_ID + " BIGINT NOT NULL, " +
+                        DbConstants.COLUMN_DEBATERS_NICKNAME + " VARCHAR(255), " +
+                        DbConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " VARCHAR(255), " +
+                        DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATERS_LOSSES + " INT DEFAULT 0, " +
+                        DbConstants.COLUMN_DEBATERS_WINS + " INT DEFAULT 0, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATERS_ID + "));");
+    }
+
+    private void createDebatesTable() {
+        executeTableCreation(DbConstants.TABLE_APF_DEBATES,
+                "(" + DbConstants.COLUMN_DEBATES_ID + " BIGINT NOT NULL AUTO_INCREMENT, " +
+                        DbConstants.COLUMN_DEBATES_TEME_ID + " INT, " +
+                        DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
+                        DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " BOOLEAN, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATES_ID + "));");
+    }
 
     private void createVersionTable() {
         String sql = "CREATE TABLE IF NOT EXISTS " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + " INT)";
@@ -102,10 +131,8 @@ public class Database {
     private void checkAndUpdateDatabaseVersion() {
         int currentVersion = getDatabaseVersion();
 
-//        try {
-        if (currentVersion < 1) {
-            // Так как мы начинаем отсчет версий с 1, в реальности этот блок может не быть нужен,
-            // если только вы не хотите обрабатывать случаи с непредвиденной инициализацией БД.
+        if (currentVersion < DbConstants.VERSION) {
+            updateDatabaseVersion(DbConstants.VERSION);
         }
 
         if (currentVersion < 2) {
@@ -117,31 +144,19 @@ public class Database {
             // Обновляем версию в базе данных.
 //               updateDatabaseVersion(3);
         }
-//        } catch (SQLException e) {
-//            logger.debug("Ошибка при выполнении миграции базы данных", e);
-//        }
     }
 
-
-    private void createDebatersTable() {
-        executeTableCreation(DbConstants.TABLE_APF_DEBATERS,
-                "(" + DbConstants.COLUMN_DEBATERS_ID + " BIGINT NOT NULL, " +
-                        DbConstants.COLUMN_DEBATERS_NICKNAME + " VARCHAR(255), " +
-                        DbConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " VARCHAR(255), " +
-                        DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " TEXT, " +
-                        DbConstants.COLUMN_DEBATERS_LOSSES + " INT DEFAULT 0, " +
-                        DbConstants.COLUMN_DEBATERS_WINS + " INT DEFAULT 0, " +
-                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATERS_ID + "));");
-    }
-
-    private void createDebatesTable() {
-        executeTableCreation(DbConstants.TABLE_APF_DEBATES,
-                "(" + DbConstants.COLUMN_DEBATES_ID + " BIGINT NOT NULL AUTO_INCREMENT, " +
-                        DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
-                        DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
-                        DbConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
-                        DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " BOOLEAN, " +
-                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATES_ID + "));");
+    private void dropTable(String tableName) {
+        if (connection != null) {
+            String sql = "DROP TABLE IF EXISTS " + tableName;
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(sql);
+            } catch (SQLException e) {
+                logger.debug("Ошибка удаления таблицы " + tableName, e);
+            }
+        } else {
+            logger.debug("Ошибка подключения к БД");
+        }
     }
 
     private void executeTableCreation(String tableName, String tableDefinition) {
