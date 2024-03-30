@@ -16,8 +16,8 @@
     <loaded-nodes />
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
-    <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a">
-      <console name="Connection 1" type="STANDARD" schema="s5068_debate_club" session="Main" />
+    <connection id="53f8bea8-73c9-489c-986b-c38fee6e7e42">
+      <console name="Connection" type="STANDARD" schema="" session="Main" />
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
@@ -27,12 +27,11 @@
     <open-files />
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
-    <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" />
+    <connection id="53f8bea8-73c9-489c-986b-c38fee6e7e42" />
   </component>
   <component name="DBNavigator.Project.DatasetFilterManager">
-    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATE" active-filter-id="EMPTY_FILTER" />
-    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.TEAMS" active-filter-id="" />
-    <filter-actions connection-id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" dataset="s5068_debate_club.DEBATERS" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="53f8bea8-73c9-489c-986b-c38fee6e7e42" dataset="s5068_debate_club1.apf_debates" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="53f8bea8-73c9-489c-986b-c38fee6e7e42" dataset="s5068_debate_club1.apf_debaters" active-filter-id="EMPTY_FILTER" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />
@@ -59,9 +58,9 @@
   </component>
   <component name="DBNavigator.Project.Settings">
     <connections>
-      <connection id="a2110658-8c8d-4431-8b3b-24bcd21b7a7a" active="true" signed="true">
+      <connection id="53f8bea8-73c9-489c-986b-c38fee6e7e42" active="true" signed="true">
         <database>
-          <name value="Connection 1" />
+          <name value="Connection" />
           <description value="" />
           <database-type value="MYSQL" />
           <config-type value="BASIC" />
@@ -69,15 +68,11 @@
           <driver-source value="BUNDLED" />
           <driver-library value="" />
           <driver value="" />
-          <url-type value="DATABASE" />
-          <host value="172.105.158.16" />
-          <port value="3306" />
-          <database value="s5068_debate_club" />
-          <tns-folder value="" />
-          <tns-profile value="" />
+          <url-type value="CUSTOM" />
+          <url value="jdbc:mysql://u5068_AUOrNhUWh5:FDZz5I%40WspdRG%2BYw2aclOEcr@172.105.158.16:3306/s5068_debate_club1" />
           <type value="USER_PASSWORD" />
-          <user value="u5068_vEssE0KzVg" />
-          <deprecated-pwd value="RXRCS2FQVWY1VnRJQWRjbyFhPU9UT1Zr" />
+          <user value="u5068_AUOrNhUWh5" />
+          <deprecated-pwd value="RkRaejVJQFdzcGRSRytZdzJhY2xPRWNy" />
         </database>
         <properties>
           <auto-commit value="false" />

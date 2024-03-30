@@ -402,8 +402,10 @@ public class SubscribeController {
         if (debateStartTask != null && !debateStartTask.isDone()) {
             debateStartTask.cancel(true);
         }
+
         subscribeDebatersList.clear();
         subscribeJudgesList.clear();
+
         showSubscribeMessage();
         isDebateStarted = false;
     }

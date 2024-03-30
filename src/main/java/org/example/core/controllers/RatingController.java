@@ -32,15 +32,15 @@ public class RatingController {
             eb.setDescription("Список дебатеров");
 
             // Сортировка дебатеров по количеству побед (можно адаптировать под вашу логику)
-            debaters.sort(Comparator.comparing(Debater::getWinnDebatesCount).reversed());
+            debaters.sort(Comparator.comparing(Debater::getWinnCount).reversed());
 
             for (Debater debater : debaters) {
                 // Форматируем строку с никнеймом и результатами
-                String debaterInfo = String.format("%s: %d/%d", debater.getNickname(), debater.getWinnDebatesCount(), debater.getLossesDebatesCount());
+                String debaterInfo = String.format("%s: %d/%d", debater.getNickname(), debater.getWinnCount(), debater.getLossesCount());
 
                 // Добавляем информацию как поле с параметром inline, чтобы расположить данные в две колонки
                 eb.addField("Дебатер", debater.getNickname(), true);
-                eb.addField("Победы/Поражения", String.format("%d/%d", debater.getWinnDebatesCount(), debater.getLossesDebatesCount()), true);
+                eb.addField("Победы/Поражения", String.format("%d/%d", debater.getWinnCount(), debater.getLossesCount()), true);
             }
 
             channel.getHistoryFromBeginning(1).queue(history -> {

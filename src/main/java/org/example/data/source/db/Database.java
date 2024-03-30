@@ -1,19 +1,9 @@
 package org.example.data.source.db;
 
-import org.example.data.models.DebateModel;
-import org.example.data.models.DebaterModel;
+import java.sql.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 public class Database {
     private static Database instance;
@@ -23,10 +13,14 @@ public class Database {
     private Database() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            String username = "u5068_vEssE0KzVg";
-            String password = "EtBKaPUf5VtIAdco!a=OTOVk";
-            String url = "jdbc:mysql://u5068_vEssE0KzVg:EtBKaPUf5VtIAdco!a%3DOTOVk@172.105.158.16:3306/s5068_debate_club";
+            String username = "u5068_AgJsVUDQAd";
+            String password = "Q^@mZ7JmQlJ04L4oxHGshasT";
+            String url = "jdbc:mysql://u5068_AgJsVUDQAd:Q%5E%40mZ7JmQlJ04L4oxHGshasT@172.105.158.16:3306/s5068_debate_club?autoReconnect=true";
             this.connection = DriverManager.getConnection(url, username, password);
+
+            // Создание таблиц, если они еще не созданы
+            createVersionTable();
+            checkAndUpdateDatabaseVersion();
 
             createDebatersTable();
             createDebatesTable();
@@ -35,34 +29,120 @@ public class Database {
         }
     }
 
-    public static Database getInstance() {
+    public static synchronized Database getInstance() {
         if (instance == null) {
             instance = new Database();
         }
         return instance;
     }
 
+    public Connection getConnection() {
+        return connection;
+    }
+
+    public Logger getLogger() {
+        return logger;
+    }
+
+
+    private void createVersionTable() {
+        String sql = "CREATE TABLE IF NOT EXISTS " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + " INT)";
+        try (Statement stmt = connection.createStatement()) {
+            stmt.executeUpdate(sql);
+            // Инициализация версии, если таблица только что была создана
+            if (getDatabaseVersion() == -1) {
+                updateDatabaseVersion(1); // Установите начальную версию вашей схемы БД
+            }
+        } catch (SQLException e) {
+            logger.debug("Ошибка создания таблицы версий", e);
+        }
+    }
+
+    private int getDatabaseVersion() {
+        String sql = "SELECT " + DbConstants.COLUMN_VERSION + " FROM " + DbConstants.TABLE_DB_VERSION
+                + " ORDER BY " + DbConstants.COLUMN_VERSION
+                + " DESC LIMIT 1";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(DbConstants.COLUMN_VERSION);
+            } else {
+                // Если в таблице нет записей, считаем версию -1
+                return -1;
+            }
+        } catch (SQLException e) {
+            logger.debug("Ошибка при получении версии базы данных", e);
+            return -1;
+        }
+    }
+
+    private void updateDatabaseVersion(int newVersion) {
+        // Удаляем все существующие записи из таблицы версий.
+        String deleteSql = "DELETE FROM " + DbConstants.TABLE_DB_VERSION;
+        // Вставляем новую версию в таблицу версий.
+        String insertSql = "INSERT INTO " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + ") VALUES (?)";
+
+        try (Statement deleteStmt = connection.createStatement()) {
+            // Выполнение запроса на удаление.
+            deleteStmt.executeUpdate(deleteSql);
+
+            try (PreparedStatement insertStmt = connection.prepareStatement(insertSql)) {
+                // Установка параметров и выполнение запроса на вставку.
+                insertStmt.setInt(1, newVersion);
+                insertStmt.executeUpdate();
+                logger.debug("Версия базы данных обновлена до: " + newVersion);
+            } catch (SQLException e) {
+                logger.debug("Ошибка при вставке новой версии базы данных", e);
+            }
+        } catch (SQLException e) {
+            logger.debug("Ошибка при удалении старых версий из таблицы " + DbConstants.COLUMN_VERSION, e);
+        }
+    }
+
+    private void checkAndUpdateDatabaseVersion() {
+        int currentVersion = getDatabaseVersion();
+
+//        try {
+        if (currentVersion < 1) {
+            // Так как мы начинаем отсчет версий с 1, в реальности этот блок может не быть нужен,
+            // если только вы не хотите обрабатывать случаи с непредвиденной инициализацией БД.
+        }
+
+        if (currentVersion < 2) {
+            // Обновляем версию в базе данных.
+//                updateDatabaseVersion(2);
+        }
+
+        if (currentVersion < 3) {
+            // Обновляем версию в базе данных.
+//               updateDatabaseVersion(3);
+        }
+//        } catch (SQLException e) {
+//            logger.debug("Ошибка при выполнении миграции базы данных", e);
+//        }
+    }
+
+
     private void createDebatersTable() {
-        executeTableCreation(DBConstants.TABLE_APF_DEBATERS,
-                "(" + DBConstants.COLUMN_DEBATERS_ID + " INT NOT NULL AUTO_INCREMENT, " +
-                        DBConstants.COLUMN_DEBATERS_NICKNAME + " VARCHAR(255), " +
-                        DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " VARCHAR(255), " +
-                        DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " TEXT, " +
-                        DBConstants.COLUMN_DEBATERS_LOSSES + " INT DEFAULT 0, " +
-                        DBConstants.COLUMN_DEBATERS_WINS + " INT DEFAULT 0, " +
-                        "PRIMARY KEY (" + DBConstants.COLUMN_DEBATERS_ID + "));");
+        executeTableCreation(DbConstants.TABLE_APF_DEBATERS,
+                "(" + DbConstants.COLUMN_DEBATERS_ID + " BIGINT NOT NULL, " +
+                        DbConstants.COLUMN_DEBATERS_NICKNAME + " VARCHAR(255), " +
+                        DbConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " VARCHAR(255), " +
+                        DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATERS_LOSSES + " INT DEFAULT 0, " +
+                        DbConstants.COLUMN_DEBATERS_WINS + " INT DEFAULT 0, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATERS_ID + "));");
     }
 
     private void createDebatesTable() {
-        executeTableCreation(DBConstants.TABLE_APF_DEBATES,
-                "(" + DBConstants.COLUMN_DEBATES_ID + " INT NOT NULL AUTO_INCREMENT, " +
-                        DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
-                        DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
-                        DBConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
-                        DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " BOOLEAN, " +
-                        "PRIMARY KEY (" + DBConstants.COLUMN_DEBATES_ID + "));");
+        executeTableCreation(DbConstants.TABLE_APF_DEBATES,
+                "(" + DbConstants.COLUMN_DEBATES_ID + " BIGINT NOT NULL AUTO_INCREMENT, " +
+                        DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
+                        DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " BOOLEAN, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_DEBATES_ID + "));");
     }
-
 
     private void executeTableCreation(String tableName, String tableDefinition) {
         if (connection != null) {
@@ -75,271 +155,6 @@ public class Database {
         } else {
             logger.debug("Ошибка подключения к БД");
         }
-    }
-
-    public CompletableFuture<Boolean> addDebater(DebaterModel debater) {
-        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO " + DBConstants.TABLE_APF_DEBATERS + " (" +
-                    DBConstants.COLUMN_DEBATERS_NICKNAME + ", " +
-                    DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + ", " +
-                    DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + ", " +
-                    DBConstants.COLUMN_DEBATERS_LOSSES + ", " +
-                    DBConstants.COLUMN_DEBATERS_WINS + ") VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE " +
-                    DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " = VALUES(" + DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + "), " +
-                    DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " = VALUES(" + DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + "), " +
-                    DBConstants.COLUMN_DEBATERS_LOSSES + " = VALUES(" + DBConstants.COLUMN_DEBATERS_LOSSES + "), " +
-                    DBConstants.COLUMN_DEBATERS_WINS + " = VALUES(" + DBConstants.COLUMN_DEBATERS_WINS + ");";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setString(1, debater.getNickname());
-                pstmt.setString(2, debater.getServerNickname());
-                pstmt.setString(3, convertListIdToString(debater.getDebatesIds()));
-                pstmt.setInt(4, debater.getLossesDebatesCount());
-                pstmt.setInt(5, debater.getWinnDebatesCount());
-
-                pstmt.executeUpdate();
-                resultFuture.complete(true);
-            } catch (SQLException e) {
-                logger.debug("Ошибка при добавлении или обновлении ApfDebater", e);
-                resultFuture.completeExceptionally(e);
-            }
-        });
-        return resultFuture;
-    }
-
-
-    public CompletableFuture<Boolean> addDebaters(List<DebaterModel> debaters) {
-        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO " + DBConstants.TABLE_APF_DEBATERS + " (" +
-                    DBConstants.COLUMN_DEBATERS_NICKNAME + ", " +
-                    DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + ", " +
-                    DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + ", " +
-                    DBConstants.COLUMN_DEBATERS_LOSSES + ", " +
-                    DBConstants.COLUMN_DEBATERS_WINS + ") VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE " +
-                    DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + " = VALUES(" + DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME + "), " +
-                    DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " = VALUES(" + DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + "), " +
-                    DBConstants.COLUMN_DEBATERS_LOSSES + " = VALUES(" + DBConstants.COLUMN_DEBATERS_LOSSES + "), " +
-                    DBConstants.COLUMN_DEBATERS_WINS + " = VALUES(" + DBConstants.COLUMN_DEBATERS_WINS + ");";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                for (DebaterModel debater : debaters) {
-                    pstmt.setString(1, debater.getNickname());
-                    pstmt.setString(2, debater.getServerNickname());
-                    pstmt.setString(3, convertListIdToString(debater.getDebatesIds()));
-                    pstmt.setInt(4, debater.getLossesDebatesCount());
-                    pstmt.setInt(5, debater.getWinnDebatesCount());
-                    pstmt.addBatch();
-                }
-                pstmt.executeBatch();
-                resultFuture.complete(true);
-            } catch (SQLException e) {
-                logger.debug("Ошибка при добавлении или обновлении списка ApfDebater", e);
-                System.err.println(e.getMessage());
-                resultFuture.completeExceptionally(e);
-            }
-        });
-        return resultFuture;
-    }
-
-
-
-    public CompletableFuture<Boolean> addDebate(DebateModel debate) {
-        CompletableFuture<Boolean> futureResult = new CompletableFuture<>();
-
-        CompletableFuture.runAsync(() -> {
-            // Обратите внимание, что id больше не включается в список параметров.
-            String sql = "INSERT INTO " + DBConstants.TABLE_APF_DEBATES + " (" +
-                    DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + ", " +
-                    DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + ", " +
-                    DBConstants.COLUMN_DEBATES_DATE_TIME + ", " +
-                    DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ") VALUES (?, ?, ?, ?)" +
-                    " ON DUPLICATE KEY UPDATE " +
-                    DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " = VALUES(" + DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + "), " +
-                    DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " = VALUES(" + DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + "), " +
-                    DBConstants.COLUMN_DEBATES_DATE_TIME + " = VALUES(" + DBConstants.COLUMN_DEBATES_DATE_TIME + "), " +
-                    DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " = VALUES(" + DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ");";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                // Обновляем индексы параметров, так как больше не используем id в качестве параметра
-                pstmt.setString(1, convertListIdToString(debate.getGovernmentMembersIds()));
-                pstmt.setString(2, convertListIdToString(debate.getOppositionMembersIds()));
-                pstmt.setTimestamp(3, Timestamp.valueOf(debate.getStartDateTime()));
-                pstmt.setBoolean(4, debate.isGovernmentWinner());
-
-                pstmt.executeUpdate();
-                // Получаем сгенерированный id
-                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        long debateId = generatedKeys.getLong(1);
-                        System.out.println("Generated Debate ID: " + debateId); // Пример использования сгенерированного id
-                    } else {
-                        throw new SQLException("Creating debate failed, no ID obtained.");
-                    }
-                }
-                futureResult.complete(true); // Успешное выполнение, возвращаем true
-            } catch (SQLException e) {
-                logger.debug("Ошибка при добавлении дебата", e);
-                System.err.println(e.getMessage());
-                futureResult.completeExceptionally(e); // В случае ошибки завершаем future с исключением
-            }
-        });
-
-        return futureResult;
-    }
-
-
-
-
-    public CompletableFuture<DebaterModel> getDebater(long debaterId) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT * FROM " + DBConstants.TABLE_APF_DEBATERS + " WHERE " +
-                    DBConstants.COLUMN_DEBATERS_ID + " = ?;";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setLong(1, debaterId);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        return new DebaterModel(
-                                rs.getLong(DBConstants.COLUMN_DEBATERS_ID),
-                                rs.getString(DBConstants.COLUMN_DEBATERS_NICKNAME),
-                                rs.getString(DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS)),
-                                rs.getInt(DBConstants.COLUMN_DEBATERS_LOSSES),
-                                rs.getInt(DBConstants.COLUMN_DEBATERS_WINS)
-                        );
-                    } else {
-                        throw new CompletionException(new NoSuchElementException("Debater with ID " + debaterId + " not found"));
-                    }
-                }
-            } catch (SQLException e) {
-                logger.debug("Ошибка при получении ApfDebater", e);
-                throw new CompletionException(e);
-            }
-        }).exceptionally(e -> {
-            // Здесь может быть логика обработки исключений, например, возвращение null
-            // или логирование ошибки
-            logger.error("Не удалось получить данные ApfDebater", e);
-            return null; // Возвращаем null или можно бросить unchecked исключение, если это приемлемо для логики приложения
-        });
-    }
-
-
-    public CompletableFuture<DebateModel> getDebate(long debateId) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT * FROM " + DBConstants.TABLE_APF_DEBATES + " WHERE " +
-                    DBConstants.COLUMN_DEBATES_ID + " = ?;";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setLong(1, debateId);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        return new DebateModel(
-                                rs.getLong(DBConstants.COLUMN_DEBATES_ID),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
-                                rs.getTimestamp(DBConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
-                                rs.getBoolean(DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
-                        );
-                    } else {
-                        throw new CompletionException(new NoSuchElementException("Debate with ID " + debateId + " not found"));
-                    }
-                }
-            } catch (SQLException e) {
-                logger.debug("Ошибка при получении ApfDebate", e);
-                throw new CompletionException(e);
-            }
-        }).exceptionally(e -> {
-            // Здесь может быть логика обработки исключений, например, возвращение null
-            // или логирование ошибки
-            logger.error("Не удалось получить данные ApfDebate", e);
-            return null; // Возвращаем null или можно бросить unchecked исключение, если это приемлемо для логики приложения
-        });
-    }
-
-
-    public CompletableFuture<List<DebateModel>> getDebates(List<Long> debateIds) {
-        if (debateIds == null || debateIds.isEmpty()) {
-            // Возвращаем CompletableFuture с пустым списком, если входной список пуст
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
-
-        return CompletableFuture.supplyAsync(() -> {
-            String placeholders = debateIds.stream()
-                    .map(id -> "?")
-                    .collect(Collectors.joining(","));
-            String sql = "SELECT * FROM " + DBConstants.TABLE_APF_DEBATES + " WHERE " +
-                    DBConstants.COLUMN_DEBATES_ID + " IN (" + placeholders + ");";
-            List<DebateModel> results = new ArrayList<>();
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                int index = 1;
-                for (Long id : debateIds) {
-                    pstmt.setLong(index++, id);
-                }
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    while (rs.next()) {
-                        DebateModel result = new DebateModel(
-                                rs.getLong(DBConstants.COLUMN_DEBATES_ID),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
-                                rs.getTimestamp(DBConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
-                                rs.getBoolean(DBConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
-                        );
-                        results.add(result);
-                    }
-                }
-            } catch (SQLException e) {
-                logger.debug("Ошибка при получении списка ApfDebate", e);
-                throw new CompletionException(e); // Пробрасываем исключение
-            }
-            return results; // Возвращаем результаты
-        }).exceptionally(e -> {
-            // Обработка исключения, возможно логгирование
-            logger.error("Не удалось получить данные ApfDebate", e);
-            return Collections.emptyList(); // Возвращение пустого списка в случае ошибки
-        });
-    }
-
-
-
-    public CompletableFuture<List<DebaterModel>> getAllDebaters() {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT * FROM " + DBConstants.TABLE_APF_DEBATERS + ";";
-            List<DebaterModel> results = new ArrayList<>();
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    while (rs.next()) {
-                        DebaterModel result = new DebaterModel(
-                                rs.getLong(DBConstants.COLUMN_DEBATERS_ID),
-                                rs.getString(DBConstants.COLUMN_DEBATERS_NICKNAME),
-                                rs.getString(DBConstants.COLUMN_DEBATERS_SERVER_NICKNAME),
-                                convertStringToListId(rs.getString(DBConstants.COLUMN_DEBATERS_APF_DEBATES_IDS)),
-                                rs.getInt(DBConstants.COLUMN_DEBATERS_LOSSES),
-                                rs.getInt(DBConstants.COLUMN_DEBATERS_WINS)
-                        );
-                        results.add(result);
-                    }
-                }
-            } catch (SQLException e) {
-                logger.debug("Ошибка при получении списка ApfDebater", e);
-                throw new CompletionException(e); // Пробрасываем исключение
-            }
-            return results; // Возвращаем результаты
-        }).exceptionally(e -> {
-            // Обработка исключения, возможно логгирование
-            // Возвращение пустого списка или null, в зависимости от требований к обработке ошибок
-            logger.error("Не удалось получить данные ApfDebater", e);
-            return Collections.emptyList(); // Или возвращение null, если это приемлемо
-        });
-    }
-
-
-    private String convertListIdToString(List<Long> list) {
-        if (list == null) return null;
-        return list.stream().map(Object::toString).collect(Collectors.joining(","));
-    }
-
-    private List<Long> convertStringToListId(String data) {
-        if (data == null || data.trim().isEmpty()) return Collections.emptyList();
-        return Arrays.stream(data.split(","))
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
     }
 
 }

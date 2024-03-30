@@ -17,6 +17,7 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.example.core.constants.enums.Stage;
 import org.example.core.models.Debate;
+import org.example.core.models.Debater;
 import org.example.domain.UseCase;
 import org.example.core.player.PlayerManager;
 import org.example.resources.StringRes;
@@ -77,12 +78,14 @@ public class DebateController {
     private Stage currentStage = Stage.START_DEBATE;
     private StageTimer currentStageTimer;
     private boolean isDebateStarted = false;
+    private boolean isDebateFinished = false;
     private boolean isWaitingMemberInTribuneForSpeak = false;
     private int votesForGovernment = 0;
     private int votesForOpposition = 0;
     private Message votingMessage;
     private Message waitingMessage;
     private Winner winner = Winner.NO_WINNER;
+    private List<Member> winners = new ArrayList<>();
     private Timer waitingMemberInTribuneTimer;
 
 
@@ -123,7 +126,7 @@ public class DebateController {
     }
 
     public void onLeaveFromTribuneVoiceChannel(Guild guild, AudioChannel channelLeft, Member member) {
-        useCase.enabledMicrophone(List.of(member));
+        if (!isDebateFinished) useCase.enabledMicrophone(List.of(member));
     }
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
@@ -230,18 +233,22 @@ public class DebateController {
         if (roles.contains(guild.getRoleById(RolesID.HEAD_GOVERNMENT))) {
             headGovernment = member;
             governmentDebaters.add(member);
+            allDebaters.add(member);
         }
         if (roles.contains(guild.getRoleById(RolesID.HEAD_OPPOSITION))) {
             headOpposition = member;
             oppositionDebaters.add(member);
+            allDebaters.add(member);
         }
         if (roles.contains(guild.getRoleById(RolesID.MEMBER_GOVERNMENT))) {
             memberGovernment = member;
             governmentDebaters.add(member);
+            allDebaters.add(member);
         }
         if (roles.contains(guild.getRoleById(RolesID.MEMBER_OPPOSITION))) {
             memberOpposition = member;
             oppositionDebaters.add(member);
+            allDebaters.add(member);
         }
         if (roles.contains(guild.getRoleById(RolesID.JUDGE))) {
             judges.add(member);
@@ -283,6 +290,7 @@ public class DebateController {
 
     private void startDebate(Guild guild) {
         isDebateStarted = true;
+        isDebateFinished = false;
         startStage(guild, Stage.JUDGES_PREPARATION);
     }
 
@@ -502,15 +510,18 @@ public class DebateController {
                 moveMembers(judges.stream().toList(), judgesVoiceChannel, () -> {
                     sendVotingMessage();
                     startTimer(currentStageTimer, title, JUDGES_PREPARATION_TIME, new ArrayList<>(), () -> {
-                        disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
-                            stopCurrentAudio(guild);
-                            moveMembers(judges.stream().toList(), tribuneVoiceChannel, () -> {
-                                startStage(guild, Stage.JUDGES_VERDICT);
+                        if (winners == null || winners.isEmpty()) {
+                            disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
+                                stopCurrentAudio(guild);
+                                moveMembers(judges.stream().toList(), tribuneVoiceChannel, () -> {
+                                    startStage(guild, Stage.JUDGES_VERDICT);
+                                });
                             });
-                        });
+                        }
                     });
+                    enableMicrophone(tribuneVoiceChannel.getMembers(), null);
                     playAudio(guild, "Фоновая музыка.mp3", () -> {
-                        enableMicrophone(tribuneVoiceChannel.getMembers(), null);
+
                     });
                 });
             });
@@ -560,6 +571,7 @@ public class DebateController {
                 });
             }
         }
+        isDebateFinished = true;
     }
 
     private void sendDebateTheme(String theme) {
@@ -656,11 +668,14 @@ public class DebateController {
         if (votedJudges.size() == judges.size()) {
             if (votesForGovernment > votesForOpposition) {
                 winner = Winner.GOVERNMENT;
+                winners = governmentDebaters.stream().toList();
             } else if (votesForGovernment < votesForOpposition) {
                 winner = Winner.OPPOSITION;
+                winners = oppositionDebaters.stream().toList();
             } else {
                 endDebate();
             }
+
             System.out.println("WINNER " + winner);
             disableVotingButtons();
             stopCurrentAudio(event.getGuild());
@@ -697,7 +712,7 @@ public class DebateController {
     private void endDebate() {
         Map<Member, Long> memberToRoleMap = new HashMap<>();
         judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
-        // Проверяем каждого участника на null перед добавлением.
+
         if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
         if (headOpposition != null) memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
         if (memberGovernment != null) memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
@@ -706,13 +721,64 @@ public class DebateController {
         useCase.enabledMicrophone(tribuneVoiceChannel.getMembers()).thenAccept(success -> {
             useCase.removeRoleFromUsers(memberToRoleMap).thenAccept(success1 -> {
                 useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
-                    addDebateToDatabase();
+                    insertDebaterEndDebateToDb(allDebaters.stream().toList(), () -> {
+                        subscribeController.endDebate();
+                    });
                 });
             });
         });
     }
 
-    private void addDebateToDatabase() {
+    private void insertDebaterEndDebateToDb(List<Member> members, Runnable callback) {
+        Debate finishedDebate = getFinishedDebate();
+        List<Long> memberIds = members.stream().map(Member::getIdLong).toList();
+
+        useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
+            finishedDebate.setId(resultDebate.getId());
+            useCase.getDebatersByMemberId(memberIds).thenAccept(allDebatersByMember -> {
+                List<Long> allDebatersIds = allDebatersByMember.stream().map(Debater::getMemberId).toList();
+                List<Debater> finishedDebaters = new ArrayList<>();
+
+                for (Member member : members) {
+                    if (allDebatersIds.contains(member.getIdLong())) {
+                        Debater debater = allDebatersByMember.stream().filter(d -> d.getMemberId() == member.getIdLong()).findFirst().orElse(null);
+                        if (winners.contains(member)) {
+                            debater.setWinnCount(debater.getWinnCount() + 1);
+                        } else {
+                            debater.setLossesCount(debater.getLossesCount() + 1);
+                        }
+                        debater.setNickname(member.getUser().getName());
+                        debater.setServerNickname(member.getEffectiveName());
+                        debater.getDebates().add(finishedDebate);
+                        finishedDebaters.add(debater);
+
+                    } else {
+                        Debater debater = new Debater();
+                        debater.setMemberId(member.getIdLong());
+                        debater.setNickname(member.getUser().getName());
+                        debater.setServerNickname(member.getEffectiveName());
+                        if (winners.contains(member)) {
+                            debater.setWinnCount(1);
+                        } else {
+                            debater.setLossesCount(1);
+                        }
+                        debater.setDebates(List.of(finishedDebate));
+                        finishedDebaters.add(debater);
+                    }
+                }
+
+                useCase.addDebaters(finishedDebaters).thenAccept(success4 -> {
+                    if (success4) {
+                        if (callback != null) callback.run();
+                    } else {
+                        System.out.println("DEBATERS NOT ADDED");
+                    }
+                });
+            });
+        });
+    }
+
+    private Debate getFinishedDebate() {
         Debate debate = new Debate();
 
         List<Member> governmentDebaters = new ArrayList<>();
@@ -727,14 +793,7 @@ public class DebateController {
         debate.setOppositionDebaters(oppositionDebaters);
         debate.setEndDateTime(LocalDateTime.now());
         debate.setIsGovernmentWinner(winner == Winner.GOVERNMENT);
-
-        useCase.addDebate(debate).thenAccept(success3 -> {
-            if (success3) {
-                subscribeController.endDebate();
-            } else {
-                System.out.println("DEBATE NOT ENDED");
-            }
-        });
+        return debate;
     }
 
     private void playAudio(Guild guild, String path, Runnable callback) {
@@ -792,49 +851,5 @@ public class DebateController {
             if (callback != null) callback.run();
         });
     }
-
-//    private CompletableFuture<List<Member>> getAllDebaters() {
-//        CompletableFuture<List<Member>> future = useCase.getMembersByRole(RolesID.HEAD_GOVERNMENT);
-//        CompletableFuture<List<Member>> future1 = useCase.getMembersByRole(RolesID.HEAD_OPPOSITION);
-//        CompletableFuture<List<Member>> future2 = useCase.getMembersByRole(RolesID.MEMBER_GOVERNMENT);
-//        CompletableFuture<List<Member>> future3 = useCase.getMembersByRole(RolesID.MEMBER_OPPOSITION);
-//
-//        return future.thenCombine(future1, (headGovernment, headOpposition) -> {
-//            List<Member> allDebaters = new ArrayList<>();
-//            if (headGovernment != null) allDebaters.addAll(headGovernment);
-//            if (headOpposition != null) allDebaters.addAll(headOpposition);
-//            return allDebaters;
-//        }).thenCombine(future2, (allDebaters, memberGovernment) -> {
-//            if (memberGovernment != null) allDebaters.addAll(memberGovernment);
-//            return allDebaters;
-//        }).thenCombine(future3, (allDebaters, memberOpposition) -> {
-//            if (memberOpposition != null) allDebaters.addAll(memberOpposition);
-//            return allDebaters;
-//        });
-//    }
-//
-//    private CompletableFuture<List<Member>> getGovernmentDebaters() {
-//        CompletableFuture<List<Member>> future = useCase.getMembersByRole(RolesID.HEAD_GOVERNMENT);
-//        CompletableFuture<List<Member>> future1 = useCase.getMembersByRole(RolesID.MEMBER_GOVERNMENT);
-//
-//        return future.thenCombine(future1, (headGovernment, memberGovernment) -> {
-//            List<Member> governmentDebaters = new ArrayList<>();
-//            if (headGovernment != null) governmentDebaters.addAll(headGovernment);
-//            if (memberGovernment != null) governmentDebaters.addAll(memberGovernment);
-//            return governmentDebaters;
-//        });
-//    }
-//
-//    private CompletableFuture<List<Member>> getOppositionDebaters() {
-//        CompletableFuture<List<Member>> future = useCase.getMembersByRole(RolesID.HEAD_OPPOSITION);
-//        CompletableFuture<List<Member>> future1 = useCase.getMembersByRole(RolesID.MEMBER_OPPOSITION);
-//
-//        return future.thenCombine(future1, (headOpposition, memberOpposition) -> {
-//            List<Member> oppositionDebaters = new ArrayList<>();
-//            if (headOpposition != null) oppositionDebaters.addAll(headOpposition);
-//            if (memberOpposition != null) oppositionDebaters.addAll(memberOpposition);
-//            return oppositionDebaters;
-//        });
-//    }
 
 }

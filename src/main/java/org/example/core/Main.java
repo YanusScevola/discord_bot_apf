@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.example.data.source.db.Database;
 
 public class Main {
     public static void main(String[] args) {
@@ -15,7 +14,7 @@ public class Main {
 //            String token = new Properties().getProperty("token");
             String token = "MTE5MDM5NDQ1NDg0NzI3OTE4NA.GlZsAO.a-Iqst8WZQBYTlEckvSAJqYW5enveezx0Cnlg0";
 
-            Database.getInstance();
+//            DataBase2.getInstance();
 
             jda = JDABuilder.createDefault(token)
                     .setActivity(Activity.playing("Дебаты"))

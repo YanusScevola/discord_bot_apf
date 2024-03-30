@@ -5,9 +5,10 @@ import java.util.List;
 public class Debater {
     private long memberId;
     private String nickname;
+    private String serverNickname;
     private List<Debate> debates;
-    private int lossesDebatesCount;
-    private int winnDebatesCount;
+    private int lossesCount;
+    private int winnCount;
 
     public List<Debate> getDebates() {
         return debates;
@@ -17,20 +18,28 @@ public class Debater {
         this.debates = debates;
     }
 
-    public int getLossesDebatesCount() {
-        return lossesDebatesCount;
+    public String getServerNickname() {
+        return serverNickname;
     }
 
-    public void setLossesDebatesCount(int lossesDebatesCount) {
-        this.lossesDebatesCount = lossesDebatesCount;
+    public void setServerNickname(String serverNickname) {
+        this.serverNickname = serverNickname;
     }
 
-    public int getWinnDebatesCount() {
-        return winnDebatesCount;
+    public int getLossesCount() {
+        return lossesCount;
     }
 
-    public void setWinnDebatesCount(int winnDebatesCount) {
-        this.winnDebatesCount = winnDebatesCount;
+    public void setLossesCount(int lossesDebatesCount) {
+        this.lossesCount = lossesDebatesCount;
+    }
+
+    public int getWinnCount() {
+        return winnCount;
+    }
+
+    public void setWinnCount(int winnDebatesCount) {
+        this.winnCount = winnDebatesCount;
     }
 
     public long getMemberId() {

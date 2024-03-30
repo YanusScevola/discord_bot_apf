@@ -8,7 +8,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.data.source.ApiService;
-import org.example.data.source.db.Database;
+import org.example.data.source.db.DbOperations;
 import org.example.resources.StringRes;
 import org.example.core.constants.TextChannelsID;
 import org.example.domain.UseCase;
@@ -27,8 +27,7 @@ public class MainListenerAdapter extends ListenerAdapter {
         stringsRes = new StringRes("ru");
 
         ApiService apiService = ApiService.getInstance(event.getJDA());
-        Database database = Database.getInstance();
-        UseCase useCase = UseCase.getInstance(apiService, database);
+        UseCase useCase = UseCase.getInstance(apiService, new DbOperations());
 
         ratingTextChat = new RatingController(useCase);
         subscribeTextChat = new SubscribeController(useCase, stringsRes);
@@ -39,24 +38,25 @@ public class MainListenerAdapter extends ListenerAdapter {
         AudioChannel channelJoined = event.getChannelJoined();
         AudioChannel channelLeft = event.getChannelLeft();
 
-//        boolean isJoinToDebateChannel = isDebateChannel(channelJoined);
-//        boolean isLeaveFromDebateChannel = isDebateChannel(channelLeft);
-
-
         String channelJoinedName = channelJoined != null ? channelJoined.getName() : "";
-        String channelLeftName = channelLeft != null ? channelLeft.getName() : "";
         long channelJoinedId = channelJoined != null ? channelJoined.getIdLong() : -1;
+
+        String channelLeftName = channelLeft != null ? channelLeft.getName() : "";
         long channelLeftId = channelLeft != null ? channelLeft.getIdLong() : -1;
 
-        if (channelJoinedName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+        boolean isChannelJoinedEqualsTribune = channelJoinedName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE));
+        boolean isChannelLeftEqualsWaitingRoom = channelLeftId == VoiceChannelsID.WAITING_ROOM;
+        boolean isChannelLeftEqualsTribune = channelLeftName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE));
+
+        if (isChannelJoinedEqualsTribune) {
             if (subscribeTextChat.debateController != null) {
                 subscribeTextChat.debateController.onJoinToTribuneVoiceChannel(event.getGuild(), channelJoined, event.getMember());
             }
         }
 
-        if (channelLeftId == VoiceChannelsID.WAITING_ROOM) {
+        if (isChannelLeftEqualsWaitingRoom) {
             subscribeTextChat.onLeaveFromVoiceChannel(event);
-        }else if (channelLeftName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+        } else if (isChannelLeftEqualsTribune) {
             if (subscribeTextChat.debateController != null) {
                 subscribeTextChat.debateController.onLeaveFromTribuneVoiceChannel(event.getGuild(), channelJoined, event.getMember());
             }

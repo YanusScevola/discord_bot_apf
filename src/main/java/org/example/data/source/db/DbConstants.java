@@ -1,9 +1,13 @@
 package org.example.data.source.db;
 
-public class DBConstants {
+public class DbConstants {
     // Названия таблиц
+    public static final String TABLE_DB_VERSION = "db_version";
     public static final String TABLE_APF_DEBATERS = "apf_debaters";
     public static final String TABLE_APF_DEBATES = "apf_debates";
+
+    // Столбцы для таблицы db_version
+    public static final String COLUMN_VERSION = "version";
 
     // Столбцы для таблицы apf_debaters
     public static final String COLUMN_DEBATERS_ID = "user_id";
@@ -20,7 +24,7 @@ public class DBConstants {
     public static final String COLUMN_DEBATES_DATE_TIME = "date_time";
     public static final String COLUMN_DEBATES_IS_GOVERNMENT_WINNER = "is_government_winner";
 
-    private DBConstants() {
+    private DbConstants() {
         // Приватный конструктор, чтобы предотвратить создание экземпляров класса
     }
 }
