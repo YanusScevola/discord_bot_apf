@@ -3,17 +3,15 @@ package org.example.core.controllers;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import org.example.core.constants.RolesID;
 import org.example.core.constants.TextChannelsID;
-import org.example.core.models.Debater;
 import org.example.domain.UseCase;
 
 import java.awt.*;
 
 public class HistoryController {
     private static HistoryController instance;
-    private TextChannel channel;
-    private UseCase useCase;
+    private final TextChannel channel;
+    private final UseCase useCase;
 
     private HistoryController(UseCase useCase) {
         this.useCase = useCase;
@@ -48,10 +46,9 @@ public class HistoryController {
             }
 
             embed.setColor(new Color(88, 100, 242));
-            embed.setTitle("Тема дебатов: Єта палата запомнит надолго\n ㅤ ");
+            embed.setTitle("Тема: " + addNewLineAfterEveryFourthWord(lastDebate.getTheme().getName()) + "\n ㅤ ");
             embed.addField(iconForGovernment + "Правительство", governmentDebatersString.toString(), true);
             embed.addField(iconForOpposition + "Оппозиция", oppositionDebatersString.toString(), true);
-//            embed.setFooter("Дата окончания: " + lastDebate.getEndDateTime().toString());
 
             if (this.channel != null) {
                 this.channel.sendMessageEmbeds(embed.build()).queue();
@@ -61,5 +58,33 @@ public class HistoryController {
         });
 
     }
+
+    public String addNewLineAfterEveryFourthWord(String input) {
+        String[] words = input.split("\\s+");
+        StringBuilder result = new StringBuilder();
+        int wordCount = 0;
+
+        for (int i = 0; i < words.length; i++) {
+            if (words[i].length() > 2) {
+                wordCount++;
+                result.append(words[i]);
+
+                if (wordCount % 3 == 0 && i < words.length - 1) {
+                    result.append("\n");
+                } else if (i < words.length - 1) {
+                    result.append(" ");
+                }
+            } else {
+                result.append(words[i]);
+                if (i < words.length - 1) {
+                    result.append(" ");
+                }
+            }
+        }
+
+        return result.toString();
+    }
+
+
 
 }

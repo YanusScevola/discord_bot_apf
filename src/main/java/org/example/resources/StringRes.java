@@ -10,108 +10,60 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class StringRes {
-    private final Map<String, String> ruStrings;
-    private final Map<String, String> enStrings;
-    private Map<String, String> currentStrings;
-    private final ObjectMapper objectMapper;
 
-    public StringRes(String defaultLanguage) {
-        objectMapper = new ObjectMapper();
-        ruStrings = loadLocalizationData("ru_strings.json");
-        enStrings = loadLocalizationData("en_strings.json");
-        setLanguage(defaultLanguage);
-    }
+    public static final String CHANNEL_TRIBUNE = "Трибуна";
+    public static final String CHANNEL_JUDGE = "Судейская";
+    public static final String CHANNEL_GOVERNMENT = "Правительство";
+    public static final String CHANNEL_OPPOSITION = "Оппозиция";
 
-    private Map<String, String> loadLocalizationData(String fileName) {
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("strings/" + fileName);
-            if (is == null) {
-                throw new FileNotFoundException("Resource file not found: " + fileName);
-            }
-            return objectMapper.readValue(is, new TypeReference<HashMap<String, String>>() {
-            });
-        } catch (IOException e) {
-            e.printStackTrace();
-            return new HashMap<>();
-        }
-    }
+    public static final String TITLE_DEBATER_LIST = "Дебатеры:";
+    public static final String TITLE_JUDGES_LIST = "Судьи:";
+    public static final String TITLE_TIMER = "Дебаты начнутся через:";
+    public static final String TITLE_DEBATE_SUBSCRIBE = "Запись на дебаты АПФ:";
+    public static final String TITLE_VOTING = "Голосование:";
+    public static final String TITLE_MEMBER_GOVERNMENT_SPEECH = "Речь члена правительства.";
+    public static final String TITLE_MEMBER_OPPOSITION_SPEECH = "Речь члена оппозиции.";
+    public static final String TITLE_HEAD_GOVERNMENT_FIRST_SPEECH = "Вступительная речь главы правительства.";
+    public static final String TITLE_HEAD_OPPOSITION_FIRST_SPEECH = "Вступительная речь главы оппозиции.";
+    public static final String TITLE_HEAD_GOVERNMENT_LAST_SPEECH = "Заключительная речь главы правительства.";
+    public static final String TITLE_HEAD_OPPOSITION_LAST_SPEECH = "Заключительная речь главы оппозиции.";
+    public static final String TITLE_JUDGES_PREPARATION = "Подготовка судей.";
+    public static final String TITLE_DEBATER_PREPARATION = "Подготовка дебатеров.";
 
-    public void setLanguage(String language) {
-        if ("ru".equals(language)) {
-            currentStrings = ruStrings;
-        } else if ("en".equals(language)) {
-            currentStrings = enStrings;
-        } else {
-            throw new IllegalArgumentException("Unsupported language: " + language);
-        }
-    }
+    public static final String DESCRIPTION_NO_MEMBERS = "Нет участников";
+    public static final String DESCRIPTION_NEED_GO_TO_TRIBUNE = "Дебаты начались! \nПерейдите в голосовой канал \"Трибуна\".";
+    public static final String DESCRIPTION_VOTE_FOR_GOVERNMENT = "За правительство: ";
+    public static final String DESCRIPTION_VOTE_FOR_OPPOSITION = "\nЗа оппозицию: ";
 
-    public String get(Key key) {
-        return currentStrings.getOrDefault(key.getKey(), "String not found");
-    }
+    public static final String BUTTON_SUBSCRIBE_DEBATER = "Записаться как дебатер";
+    public static final String BUTTON_SUBSCRIBE_JUDGE = "Записаться как судья";
+    public static final String BUTTON_UNSUBSCRIBE = "Отписаться";
+    public static final String BUTTON_ASK_QUESTION = "Задать вопрос";
+    public static final String BUTTON_END_SPEECH = "Закончить речь";
+    public static final String BUTTON_END_DEBATE = "Закончить дебаты";
+    public static final String BUTTON_VOTE_GOVERNMENT = "Голосовать за \"Правительство\"";
+    public static final String BUTTON_VOTE_OPPOSITION = "Голосовать за \"Оппозицию\"";
 
-    public enum Key {
-        CHANNEL_TRIBUNE("channel_tribune"),
-        CHANNEL_JUDGE("channel_judge"),
-        CHANNEL_GOVERNMENT("channel_government"),
-        CHANNEL_OPPOSITION("channel_opposition"),
+    public static final String WARNING_NEED_WAITING_ROOM = "Вы должны находиться в голосовом канале \"Зал ожидания\".";
+    public static final String WARNING_NEED_DEBATER_ROLE = "Нужно получить роль \"Дебатер\".";
+    public static final String WARNING_NEED_JUDGE_ROLE = "Нужно получить роль \"Судья\".";
+    public static final String WARNING_NEED_SUBSCRIBED = "Вы не записаны на дебаты.";
+    public static final String WARNING_ALREADY_DEBATER = "Вы уже находитесь в списке дебатеров.";
+    public static final String WARNING_ALREADY_JUDGE = "Вы уже находитесь в списке судей.";
+    public static final String WARNING_NOT_IMPLEMENTED = "Данная функция пока не реализована.";
+    public static final String WARNING_NOT_DEBATER = "Вы не дебатер";
+    public static final String WARNING_NOT_JUDGE = "Вы не судья";
+    public static final String WARNING_ALREADY_VOTED = "Вы уже проголосовали";
+    public static final String WARNING_NOT_ASK_OWN_TEAM = "Нельзя задавать вопрос члену своей команды";
 
-        TITLE_DEBATER_LIST("title_debater_list"),
-        TITLE_JUDGES_LIST("title_judges_list"),
-        TITLE_TIMER("title_timer"),
-        TITLE_DEBATE_SUBSCRIBE("title_debate_subscribe"),
-        TITLE_VOTING("title_voting"),
-        TITLE_MEMBER_GOVERNMENT_SPEECH("title_member_government_speech"),
-        TITLE_MEMBER_OPPOSITION_SPEECH("title_member_opposition_speech"),
-        TITLE_HEAD_GOVERNMENT_FIRST_SPEECH("title_head_government_first_speech"),
-        TITLE_HEAD_OPPOSITION_FIRST_SPEECH("title_head_opposition_first_speech"),
-        TITLE_HEAD_GOVERNMENT_LAST_SPEECH("title_head_government_last_speech"),
-        TITLE_HEAD_OPPOSITION_LAST_SPEECH("title_head_opposition_last_speech"),
-        TITLE_JUDGES_PREPARATION("title_judges_preparation"),
-        TITLE_DEBATER_PREPARATION("title_debater_preparation"),
+    public static final String REMARK_DEBATER_ADDED = "Вы были добавлены в список дебатеров.";
+    public static final String REMARK_JUDGE_ADDED = "Вы были добавлены в список судей.";
+    public static final String REMARK_DEBATER_REMOVED = "Вы были удалены из списка дебатеров.";
+    public static final String REMARK_JUDGE_REMOVED = "Вы были удалены из списка судей.";
+    public static final String REMARK_ASK_GOVERNMENT_MEMBER = "Задайте вопрос члену правительства.";
+    public static final String REMARK_ASK_OPPOSITION_MEMBER = "Задайте вопрос члену оппозиции.";
+    public static final String REMARK_SPEECH_END = "Вы закончили речь.";
+    public static final String REMARK_VOTE_GOVERNMENT = "Вы проголосовали за \"Правительство\".";
+    public static final String REMARK_VOTE_OPPOSITION = "Вы проголосовали за \"Оппозицию\".";
 
-        DESCRIPTION_NO_MEMBERS("description_no_members"),
-        DESCRIPTION_NEED_GO_TO_TRIBUNE("description_go_to_tribune"),
-        DESCRIPTION_VOTE_FOR_GOVERNMENT("description_vote_for_government"),
-        DESCRIPTION_VOTE_FOR_OPPOSITION("description_vote_for_opposition"),
-
-        BUTTON_SUBSCRIBE_DEBATER("button_subscribe_debater"),
-        BUTTON_SUBSCRIBE_JUDGE("button_subscribe_judge"),
-        BUTTON_UNSUBSCRIBE("button_unsubscribe"),
-        BUTTON_ASK_QUESTION("button_ask_question"),
-        BUTTON_END_SPEECH("button_end_speech"),
-        BUTTON_END_DEBATE("button_end_debate"),
-        BUTTON_VOTE_GOVERNMENT("button_vote_government"),
-        BUTTON_VOTE_OPPOSITION("button_vote_opposition"),
-
-        WARNING_NEED_WAITING_ROOM("warning_need_waiting_room"),
-        WARNING_NEED_DEBATER_ROLE("warning_need_debater_role"),
-        WARNING_NEED_JUDGE_ROLE("warning_need_judge_role"),
-        WARNING_NEED_SUBSCRIBED("warning_need_subscribed"),
-        WARNING_ALREADY_DEBATER("warning_already_debater"),
-        WARNING_ALREADY_JUDGE("warning_already_judge"),
-        WARNING_NOT_IMPLEMENTED("warning_not_implemented"),
-        WARNING_NOT_DEBATER("warning_not_debater"),
-        WARNING_NOT_JUDGE("warning_not_judge"),
-        WARNING_ALREADY_VOTED("warning_already_voted"),
-        WARNING_NOT_ASK_OWN_TEAM("warning_not_ask_own_team"),
-
-        REMARK_DEBATER_ADDED("remark_debater_added"),
-        REMARK_JUDGE_ADDED("remark_judge_added"),
-        REMARK_DEBATER_REMOVED("remark_debater_removed"),
-        REMARK_JUDGE_REMOVED("remark_judge_removed"),
-        REMARK_ASK_GOVERNMENT_MEMBER("remark_ask_government_member"),
-        REMARK_ASK_OPPOSITION_MEMBER("remark_ask_opposition_member"),
-        REMARK_SPEECH_END("remark_speech_end"),
-        REMARK_VOTE_GOVERNMENT("remark_vote_government"),
-        REMARK_VOTE_OPPOSITION("remark_vote_opposition");
-
-        private final String key;
-        Key(String key) {
-            this.key = key;
-        }
-        private String getKey() {
-            return key;
-        }
-    }
 }

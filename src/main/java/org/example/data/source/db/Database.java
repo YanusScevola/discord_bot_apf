@@ -22,6 +22,7 @@ public class Database {
             createThemesTable();
             createDebatersTable();
             createDebatesTable();
+            createTestsTable();
 
             checkAndUpdateDatabaseVersion();
         } catch (ClassNotFoundException | SQLException e) {
@@ -42,6 +43,19 @@ public class Database {
 
     public Logger getLogger() {
         return logger;
+    }
+
+    private void createVersionTable() {
+        String sql = "CREATE TABLE IF NOT EXISTS " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + " INT)";
+        try (Statement stmt = connection.createStatement()) {
+            stmt.executeUpdate(sql);
+            // Инициализация версии, если таблица только что была создана
+            if (getDatabaseVersion() == -1) {
+                updateDatabaseVersion(1); // Установите начальную версию вашей схемы БД
+            }
+        } catch (SQLException e) {
+            logger.debug("Ошибка создания таблицы версий", e);
+        }
     }
 
     private void createThemesTable() {
@@ -66,7 +80,7 @@ public class Database {
     private void createDebatesTable() {
         executeTableCreation(DbConstants.TABLE_APF_DEBATES,
                 "(" + DbConstants.COLUMN_DEBATES_ID + " BIGINT NOT NULL AUTO_INCREMENT, " +
-                        DbConstants.COLUMN_DEBATES_TEME_ID + " INT, " +
+                        DbConstants.COLUMN_DEBATES_THEME_ID + " INT, " +
                         DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
                         DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
                         DbConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
@@ -74,16 +88,28 @@ public class Database {
                         "PRIMARY KEY (" + DbConstants.COLUMN_DEBATES_ID + "));");
     }
 
-    private void createVersionTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + " INT)";
-        try (Statement stmt = connection.createStatement()) {
-            stmt.executeUpdate(sql);
-            // Инициализация версии, если таблица только что была создана
-            if (getDatabaseVersion() == -1) {
-                updateDatabaseVersion(1); // Установите начальную версию вашей схемы БД
+    private void createTestsTable() {
+        executeTableCreation(DbConstants.TABLE_TESTS,
+                "(" + DbConstants.COLUMN_TESTS_ID + " INT NOT NULL AUTO_INCREMENT, " +
+                        DbConstants.COLUMN_TESTS_QUESTION + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TESTS_ANSWER_1 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TESTS_ANSWER_2 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TESTS_ANSWER_3 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TESTS_ANSWER_4 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TESTS_CORRECT_ANSWER + " VARCHAR(255), " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_TESTS_ID + "));");
+    }
+
+    private void executeTableCreation(String tableName, String tableDefinition) {
+        if (connection != null) {
+            String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " " + tableDefinition;
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(sql);
+            } catch (SQLException e) {
+                logger.debug("Ошибка создания таблицы " + tableName, e);
             }
-        } catch (SQLException e) {
-            logger.debug("Ошибка создания таблицы версий", e);
+        } else {
+            logger.debug("Ошибка подключения к БД");
         }
     }
 
@@ -153,19 +179,6 @@ public class Database {
                 stmt.executeUpdate(sql);
             } catch (SQLException e) {
                 logger.debug("Ошибка удаления таблицы " + tableName, e);
-            }
-        } else {
-            logger.debug("Ошибка подключения к БД");
-        }
-    }
-
-    private void executeTableCreation(String tableName, String tableDefinition) {
-        if (connection != null) {
-            String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " " + tableDefinition;
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(sql);
-            } catch (SQLException e) {
-                logger.debug("Ошибка создания таблицы " + tableName, e);
             }
         } else {
             logger.debug("Ошибка подключения к БД");

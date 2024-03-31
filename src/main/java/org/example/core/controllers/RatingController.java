@@ -30,11 +30,8 @@ public class RatingController {
         return instance;
     }
 
-
     public void displayDebatersList() {
         try {
-
-
             this.channel = useCase.getTextChannel(TextChannelsID.RATING);
             useCase.getMembersByRole(RolesID.DEBATER_APF).thenAccept(members -> {
                 var membersIds = members.stream().map(ISnowflake::getIdLong).collect(Collectors.toList());

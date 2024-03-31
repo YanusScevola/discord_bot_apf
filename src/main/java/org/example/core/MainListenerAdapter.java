@@ -21,16 +21,14 @@ public class MainListenerAdapter extends ListenerAdapter {
 
     RatingController ratingTextChat;
     SubscribeController subscribeTextChat;
-    StringRes stringsRes;
 
     public void onReady(@NotNull ReadyEvent event) {
-        stringsRes = new StringRes("ru");
 
         ApiService apiService = ApiService.getInstance(event.getJDA());
         UseCase useCase = UseCase.getInstance(apiService, new DbOperations());
 
 //        ratingTextChat = new RatingController(useCase);
-        subscribeTextChat = new SubscribeController(useCase, stringsRes);
+        subscribeTextChat = new SubscribeController(useCase);
     }
 
     @Override
@@ -44,9 +42,9 @@ public class MainListenerAdapter extends ListenerAdapter {
         String channelLeftName = channelLeft != null ? channelLeft.getName() : "";
         long channelLeftId = channelLeft != null ? channelLeft.getIdLong() : -1;
 
-        boolean isChannelJoinedEqualsTribune = channelJoinedName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE));
+        boolean isChannelJoinedEqualsTribune = channelJoinedName.equals(StringRes.CHANNEL_TRIBUNE);
         boolean isChannelLeftEqualsWaitingRoom = channelLeftId == VoiceChannelsID.WAITING_ROOM;
-        boolean isChannelLeftEqualsTribune = channelLeftName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE));
+        boolean isChannelLeftEqualsTribune = channelLeftName.equals(StringRes.CHANNEL_TRIBUNE);
 
         if (isChannelJoinedEqualsTribune) {
             if (subscribeTextChat.debateController != null) {
@@ -81,13 +79,13 @@ public class MainListenerAdapter extends ListenerAdapter {
             long channelId = event.getChannel().asTextChannel().getIdLong();
             if (channelId == TextChannelsID.SUBSCRIBE) {
                 subscribeTextChat.onButtonInteraction(event);
-            } else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+            } else if (channelName.equals(StringRes.CHANNEL_TRIBUNE)) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
             }
         } else {
-            if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE))) {
+            if (channelName.equals(StringRes.CHANNEL_TRIBUNE)) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
-            } else if (channelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE))) {
+            } else if (channelName.equals(StringRes.CHANNEL_JUDGE)) {
                 subscribeTextChat.debateController.onButtonInteraction(event);
             }
         }

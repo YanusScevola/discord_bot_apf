@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.core.models.Debate;
 import org.example.core.models.Debater;
+import org.example.core.models.Question;
 import org.example.core.models.Theme;
 import org.example.data.models.DebateModel;
 import org.example.data.models.DebaterModel;
@@ -613,6 +614,32 @@ public class UseCase {
             debate.setId(resultDebateModel.getId());
             return debate;
         });
+    }
+
+    public CompletableFuture<List<Question>> getQuestions(List<Integer> questionIds) {
+        return dataBase.getQuestions(questionIds).thenApply(questionModels -> questionModels.stream()
+                .map(questionModel -> {
+                    Question question = new Question();
+                    question.setId(questionModel.getId());
+                    question.setText(questionModel.getText());
+                    question.setAnswers(questionModel.getAnswers());
+                    question.setCorrectAnswer(questionModel.getCorrectAnswer());
+                    return question;
+                })
+                .collect(Collectors.toList()));
+    }
+
+    public CompletableFuture<List<Question>> getAllQuestions() {
+        return dataBase.getAllQuestions().thenApply(questionModels -> questionModels.stream()
+                .map(questionModel -> {
+                    Question question = new Question();
+                    question.setId(questionModel.getId());
+                    question.setText(questionModel.getText());
+                    question.setAnswers(questionModel.getAnswers());
+                    question.setCorrectAnswer(questionModel.getCorrectAnswer());
+                    return question;
+                })
+                .collect(Collectors.toList()));
     }
 
 }

@@ -53,7 +53,6 @@ public class DebateController {
     private final Button voteOppositionButton;
 
     private final UseCase useCase;
-    private final StringRes stringsRes;
 
     private SubscribeController subscribeController;
 
@@ -91,15 +90,14 @@ public class DebateController {
     private Theme currentTheme;
 
 
-    public DebateController(UseCase useCase, StringRes stringsRes, SubscribeController subscribeController) {
+    public DebateController(UseCase useCase, SubscribeController subscribeController) {
         this.useCase = useCase;
-        this.stringsRes = stringsRes;
         this.subscribeController = subscribeController;
 
-        askQuestionButton = Button.success(ASK_QUESTION_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_ASK_QUESTION));
-        endSpeechButton = Button.primary(END_SPEECH_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_END_SPEECH));
-        voteGovernmentButton = Button.primary(VOTE_GOVERNMENT_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_VOTE_GOVERNMENT));
-        voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, stringsRes.get(StringRes.Key.BUTTON_VOTE_OPPOSITION));
+        askQuestionButton = Button.success(ASK_QUESTION_BTN_ID, StringRes.BUTTON_ASK_QUESTION);
+        endSpeechButton = Button.primary(END_SPEECH_BTN_ID, StringRes.BUTTON_END_SPEECH);
+        voteGovernmentButton = Button.primary(VOTE_GOVERNMENT_BTN_ID, StringRes.BUTTON_VOTE_GOVERNMENT);
+        voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, StringRes.BUTTON_VOTE_OPPOSITION);
     }
 
     public void onJoinToTribuneVoiceChannel(Guild guild, AudioChannel channelJoined, Member member) {
@@ -142,13 +140,13 @@ public class DebateController {
 
     public void addChannel(VoiceChannel channel) {
         String voiceChannelName = channel.getName();
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_TRIBUNE)))
+        if (voiceChannelName.equals(StringRes.CHANNEL_TRIBUNE))
             tribuneVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_JUDGE)))
+        if (voiceChannelName.equals(StringRes.CHANNEL_JUDGE))
             judgesVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_GOVERNMENT)))
+        if (voiceChannelName.equals(StringRes.CHANNEL_GOVERNMENT))
             governmentVoiceChannel = channel;
-        if (voiceChannelName.equals(stringsRes.get(StringRes.Key.CHANNEL_OPPOSITION)))
+        if (voiceChannelName.equals(StringRes.CHANNEL_OPPOSITION))
             oppositionVoiceChannel = channel;
         allVoiceChannels.add(channel);
     }
@@ -158,20 +156,20 @@ public class DebateController {
             if (allDebaters.contains(event.getMember())) {
                 if (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH) {
                     if (oppositionDebaters.contains(event.getMember())) {
-                        message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_GOVERNMENT_MEMBER)).queue((msg) -> {
+                        message.editOriginal(StringRes.REMARK_ASK_GOVERNMENT_MEMBER).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
                     } else
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
+                        message.editOriginal(StringRes.WARNING_NOT_ASK_OWN_TEAM).queue();
                 } else if (currentStage == Stage.MEMBER_OPPOSITION_SPEECH) {
                     if (governmentDebaters.contains(event.getMember())) {
-                        message.editOriginal(stringsRes.get(StringRes.Key.REMARK_ASK_OPPOSITION_MEMBER)).queue((msg) -> {
+                        message.editOriginal(StringRes.REMARK_ASK_OPPOSITION_MEMBER).queue((msg) -> {
                             startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
                         });
                     } else
-                        message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_ASK_OWN_TEAM)).queue();
+                        message.editOriginal(StringRes.WARNING_NOT_ASK_OWN_TEAM).queue();
                 } else message.editOriginal("Сейчас нельзя задавать вопросы").queue();
-            } else message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_DEBATER)).queue();
+            } else message.editOriginal(StringRes.WARNING_NOT_DEBATER).queue();
         });
     }
 
@@ -186,7 +184,7 @@ public class DebateController {
                     (currentStage == Stage.HEAD_OPPOSITION_LAST_SPEECH && headOpposition.equals(member));
 
             if (canEndSpeech) {
-                message.editOriginal(stringsRes.get(StringRes.Key.REMARK_SPEECH_END)).queue((msg) -> {
+                message.editOriginal(StringRes.REMARK_SPEECH_END).queue((msg) -> {
                     skipTimer();
                 });
             } else {
@@ -198,9 +196,9 @@ public class DebateController {
     private void onClickEndDebateBtn(ButtonInteractionEvent event) {
         useCase.showEphemeralLoading(event).thenAccept(message -> {
             if (allDebaters.contains(event.getMember())) {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_IMPLEMENTED)).queue();
+                message.editOriginal(StringRes.WARNING_NOT_IMPLEMENTED).queue();
             } else {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_DEBATER)).queue();
+                message.editOriginal(StringRes.WARNING_NOT_DEBATER).queue();
             }
         });
     }
@@ -209,10 +207,10 @@ public class DebateController {
         useCase.showEphemeralLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.GOVERNMENT, () -> {
-                    message.editOriginal(stringsRes.get(StringRes.Key.REMARK_VOTE_GOVERNMENT)).queue();
+                    message.editOriginal(StringRes.REMARK_VOTE_GOVERNMENT).queue();
                 });
             } else {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_JUDGE)).queue();
+                message.editOriginal(StringRes.WARNING_NOT_JUDGE).queue();
             }
         });
     }
@@ -221,10 +219,10 @@ public class DebateController {
         useCase.showEphemeralLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.OPPOSITION, () -> {
-                    message.editOriginal(stringsRes.get(StringRes.Key.REMARK_VOTE_OPPOSITION)).queue();
+                    message.editOriginal(StringRes.REMARK_VOTE_OPPOSITION).queue();
                 });
             } else {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_NOT_JUDGE)).queue();
+                message.editOriginal(StringRes.WARNING_NOT_JUDGE).queue();
             }
         });
     }
@@ -321,7 +319,7 @@ public class DebateController {
     private void startDebatersPreparationStage(Guild guild) {
         currentStage = Stage.DEBATERS_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_DEBATER_PREPARATION);
+        String title = StringRes.TITLE_DEBATER_PREPARATION;
         List<Button> buttons = List.of();
 
         playAudio(guild, "Подготовка дебатеров.mp3", () -> {
@@ -349,7 +347,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headGovernment);
         currentStage = Stage.HEAD_GOVERNMENT_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_FIRST_SPEECH);
+        String title = StringRes.TITLE_HEAD_GOVERNMENT_FIRST_SPEECH;
         List<Button> buttons = List.of(endSpeechButton);
 
         if (isDebaterAreInTribune) {
@@ -376,7 +374,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headOpposition);
         currentStage = Stage.HEAD_OPPOSITION_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_FIRST_SPEECH);
+        String title = StringRes.TITLE_HEAD_OPPOSITION_FIRST_SPEECH;
         List<Button> buttons = List.of(endSpeechButton);
 
         if (isDebaterAreInTribune) {
@@ -403,7 +401,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(memberGovernment);
         currentStage = Stage.MEMBER_GOVERNMENT_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_GOVERNMENT_SPEECH);
+        String title = StringRes.TITLE_MEMBER_GOVERNMENT_SPEECH;
         List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
         if (isDebaterAreInTribune) {
             playAudio(guild, "Член правительства.mp3", () -> {
@@ -429,7 +427,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(memberOpposition);
         currentStage = Stage.MEMBER_OPPOSITION_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_MEMBER_OPPOSITION_SPEECH);
+        String title = StringRes.TITLE_MEMBER_OPPOSITION_SPEECH;
         List<Button> buttons = List.of(askQuestionButton, endSpeechButton);
         if (isDebaterAreInTribune) {
             playAudio(guild, "Член оппозиции.mp3", () -> {
@@ -455,7 +453,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headOpposition);
         currentStage = Stage.HEAD_OPPOSITION_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_HEAD_OPPOSITION_LAST_SPEECH);
+        String title = StringRes.TITLE_HEAD_OPPOSITION_LAST_SPEECH;
         List<Button> buttons = List.of(endSpeechButton);
         if (isDebaterAreInTribune) {
             playAudio(guild, "Закл глава оппозиции.mp3", () -> {
@@ -481,7 +479,7 @@ public class DebateController {
         boolean isDebaterAreInTribune = tribuneVoiceChannel.getMembers().contains(headGovernment);
         currentStage = Stage.HEAD_GOVERNMENT_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_HEAD_GOVERNMENT_LAST_SPEECH);
+        String title = StringRes.TITLE_HEAD_GOVERNMENT_LAST_SPEECH;
         List<Button> buttons = List.of(endSpeechButton);
         if (isDebaterAreInTribune) {
             playAudio(guild, "Закл глава правительства.mp3", () -> {
@@ -506,7 +504,7 @@ public class DebateController {
     private void startJudgesPreparationStage(Guild guild) {
         currentStage = Stage.JUDGES_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = stringsRes.get(StringRes.Key.TITLE_JUDGES_PREPARATION);
+        String title = StringRes.TITLE_JUDGES_PREPARATION;
         playAudio(guild, "Подготовка судей.mp3", () -> {
             playAudio(guild, "Разговоры пока судьи готовятся.mp3", () -> {
                 moveMembers(judges.stream().toList(), judgesVoiceChannel, () -> {
@@ -646,8 +644,8 @@ public class DebateController {
 
     public void sendVotingMessage() {
         EmbedBuilder eb = new EmbedBuilder();
-        eb.setTitle(stringsRes.get(StringRes.Key.TITLE_VOTING));
-        eb.setDescription(stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_GOVERNMENT) + votesForGovernment + stringsRes.get(StringRes.Key.DESCRIPTION_VOTE_FOR_OPPOSITION) + votesForOpposition);
+        eb.setTitle(StringRes.TITLE_VOTING);
+        eb.setDescription(StringRes.DESCRIPTION_VOTE_FOR_GOVERNMENT + votesForGovernment + StringRes.DESCRIPTION_VOTE_FOR_OPPOSITION + votesForOpposition);
         eb.setColor(0xF40C0C);
 
         judgesVoiceChannel.sendMessageEmbeds(eb.build())
@@ -659,7 +657,7 @@ public class DebateController {
         System.out.println("VOTE FOR " + voteFor);
         if (votedJudges.contains(event.getMember())) {
             useCase.showEphemeralLoading(event).thenAccept(message -> {
-                message.editOriginal(stringsRes.get(StringRes.Key.WARNING_ALREADY_VOTED)).queue();
+                message.editOriginal(StringRes.WARNING_ALREADY_VOTED).queue();
             });
             return;
         }
@@ -727,8 +725,11 @@ public class DebateController {
             if (memberOpposition != null) memberToRoleMap.put(memberOpposition, RolesID.MEMBER_OPPOSITION);
 
             useCase.enabledMicrophone(tribuneVoiceChannel.getMembers()).thenAccept(success -> {
+                System.out.println("ENABLE MICROPHONE");
                 useCase.removeRoleFromUsers(memberToRoleMap).thenAccept(success1 -> {
+                    System.out.println("REMOVE ROLES");
                     useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
+                        System.out.println("DELETE VOICE CHANNELS");
                         insertDebaterEndDebateToDb(allDebaters.stream().toList(), () -> {
                             System.out.println("END DEBATE");
                             subscribeController.endDebate();
@@ -744,6 +745,8 @@ public class DebateController {
     private void insertDebaterEndDebateToDb(List<Member> members, Runnable callback) {
         Debate finishedDebate = getFinishedDebate();
         List<Long> memberIds = members.stream().map(Member::getIdLong).toList();
+        Theme currentTheme = new Theme();
+        currentTheme.setId(1);
         finishedDebate.setTheme(currentTheme);
         useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
             finishedDebate.setId(resultDebate.getId());

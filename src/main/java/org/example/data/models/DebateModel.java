@@ -14,12 +14,13 @@ public class DebateModel {
     public DebateModel() {
     }
 
-    public DebateModel(long id, List<Long> convertStringToListId, List<Long> convertStringToListId1, LocalDateTime toLocalDateTime, boolean aBoolean) {
+    public DebateModel(long id, int themeId, List<Long> governmentMembersIds, List<Long> oppositionMembersIds, LocalDateTime startDateTime, boolean isGovernmentWinner) {
         this.id = id;
-        this.governmentMembersIds = convertStringToListId;
-        this.oppositionMembersIds = convertStringToListId1;
-        this.startDateTime = toLocalDateTime;
-        this.isGovernmentWinner = aBoolean;
+        this.themeId = themeId;
+        this.governmentMembersIds = governmentMembersIds;
+        this.oppositionMembersIds = oppositionMembersIds;
+        this.startDateTime = startDateTime;
+        this.isGovernmentWinner = isGovernmentWinner;
     }
 
     public long getId() {

@@ -2,6 +2,7 @@ package org.example.data.source.db;
 
 import org.example.data.models.DebateModel;
 import org.example.data.models.DebaterModel;
+import org.example.data.models.QuestionModel;
 import org.example.data.models.ThemeModel;
 
 import java.sql.*;
@@ -32,14 +33,14 @@ public class DbOperations {
                     DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + "), " +
                     DbConstants.COLUMN_DEBATERS_LOSSES + " = VALUES(" + DbConstants.COLUMN_DEBATERS_LOSSES + "), " +
                     DbConstants.COLUMN_DEBATERS_WINS + " = VALUES(" + DbConstants.COLUMN_DEBATERS_WINS + ");";
-            try (PreparedStatement pstmt = db.getConnection().prepareStatement(sql)) {
-                pstmt.setLong(1, debater.getMemberId());
-                pstmt.setString(2, debater.getNickname());
-                pstmt.setString(3, debater.getServerNickname());
-                pstmt.setString(4, convertListIdToString(debater.getDebatesIds()));
-                pstmt.setInt(5, debater.getLossesDebatesCount());
-                pstmt.setInt(6, debater.getWinnDebatesCount());
-                pstmt.executeUpdate();
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                statement.setLong(1, debater.getMemberId());
+                statement.setString(2, debater.getNickname());
+                statement.setString(3, debater.getServerNickname());
+                statement.setString(4, convertListIdToString(debater.getDebatesIds()));
+                statement.setInt(5, debater.getLossesDebatesCount());
+                statement.setInt(6, debater.getWinnDebatesCount());
+                statement.executeUpdate();
                 resultFuture.complete(true);
             } catch (SQLException e) {
                 db.getLogger().debug("Ошибка при добавлении или обновлении ApfDebater", e);
@@ -49,7 +50,6 @@ public class DbOperations {
         });
         return resultFuture;
     }
-
 
     public CompletableFuture<Boolean> addDebaters(List<DebaterModel> debaters) {
         CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
@@ -66,17 +66,17 @@ public class DbOperations {
                     DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATERS_APF_DEBATES_IDS + "), " +
                     DbConstants.COLUMN_DEBATERS_LOSSES + " = VALUES(" + DbConstants.COLUMN_DEBATERS_LOSSES + "), " +
                     DbConstants.COLUMN_DEBATERS_WINS + " = VALUES(" + DbConstants.COLUMN_DEBATERS_WINS + ");";
-            try (PreparedStatement pstmt = db.getConnection().prepareStatement(sql)) {
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
                 for (DebaterModel debater : debaters) {
-                    pstmt.setLong(1, debater.getMemberId());
-                    pstmt.setString(2, debater.getNickname());
-                    pstmt.setString(3, debater.getServerNickname());
-                    pstmt.setString(4, convertListIdToString(debater.getDebatesIds()));
-                    pstmt.setInt(5, debater.getLossesDebatesCount());
-                    pstmt.setInt(6, debater.getWinnDebatesCount());
-                    pstmt.addBatch();
+                    statement.setLong(1, debater.getMemberId());
+                    statement.setString(2, debater.getNickname());
+                    statement.setString(3, debater.getServerNickname());
+                    statement.setString(4, convertListIdToString(debater.getDebatesIds()));
+                    statement.setInt(5, debater.getLossesDebatesCount());
+                    statement.setInt(6, debater.getWinnDebatesCount());
+                    statement.addBatch();
                 }
-                pstmt.executeBatch();
+                statement.executeBatch();
                 resultFuture.complete(true);
             } catch (SQLException e) {
                 db.getLogger().debug("Ошибка при добавлении или обновлении ApfDebater", e);
@@ -252,20 +252,23 @@ public class DbOperations {
 
         CompletableFuture.runAsync(() -> {
             String sql = "INSERT INTO " + DbConstants.TABLE_APF_DEBATES + " (" +
+                    DbConstants.COLUMN_DEBATES_THEME_ID + ", " + // Добавлен идентификатор темы
                     DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + ", " +
                     DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + ", " +
                     DbConstants.COLUMN_DEBATES_DATE_TIME + ", " +
-                    DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ") VALUES (?, ?, ?, ?)" +
+                    DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ") VALUES (?, ?, ?, ?, ?)" +
                     " ON DUPLICATE KEY UPDATE " +
+                    DbConstants.COLUMN_DEBATES_THEME_ID + " = VALUES(" + DbConstants.COLUMN_DEBATES_THEME_ID + "), " + // Обновление для нового столбца
                     DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + "), " +
                     DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + "), " +
                     DbConstants.COLUMN_DEBATES_DATE_TIME + " = VALUES(" + DbConstants.COLUMN_DEBATES_DATE_TIME + "), " +
                     DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " = VALUES(" + DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ");";
             try (PreparedStatement statement = db.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                statement.setString(1, convertListIdToString(debate.getGovernmentMembersIds()));
-                statement.setString(2, convertListIdToString(debate.getOppositionMembersIds()));
-                statement.setTimestamp(3, Timestamp.valueOf(debate.getStartDateTime()));
-                statement.setBoolean(4, debate.isGovernmentWinner());
+                statement.setInt(1, debate.getThemeId()); // Установка themeId
+                statement.setString(2, convertListIdToString(debate.getGovernmentMembersIds()));
+                statement.setString(3, convertListIdToString(debate.getOppositionMembersIds()));
+                statement.setTimestamp(4, Timestamp.valueOf(debate.getStartDateTime()));
+                statement.setBoolean(5, debate.isGovernmentWinner());
 
                 statement.executeUpdate();
                 // Получаем сгенерированный id
@@ -288,6 +291,7 @@ public class DbOperations {
         return futureResult;
     }
 
+
     public CompletableFuture<DebateModel> getDebate(long debateId) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT * FROM " + DbConstants.TABLE_APF_DEBATES + " WHERE " +
@@ -298,6 +302,7 @@ public class DbOperations {
                     if (rs.next()) {
                         return new DebateModel(
                                 rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                 rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
@@ -326,6 +331,7 @@ public class DbOperations {
                     if (rs.next()) {
                         return new DebateModel(
                                 rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                 rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
@@ -395,6 +401,7 @@ public class DbOperations {
                     while (rs.next()) {
                         DebateModel result = new DebateModel(
                                 rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                 rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
@@ -427,6 +434,7 @@ public class DbOperations {
                     while (rs.next()) {
                         DebateModel result = new DebateModel(
                                 rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                 rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
@@ -471,6 +479,7 @@ public class DbOperations {
                     while (rs.next()) {
                         DebateModel result = new DebateModel(
                                 rs.getLong(DbConstants.COLUMN_DEBATES_ID),
+                                rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
                                 convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                 rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
@@ -490,6 +499,81 @@ public class DbOperations {
         });
     }
 
+    public CompletableFuture<List<QuestionModel>> getQuestions(List<Integer> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            String placeholders = questionIds.stream()
+                    .map(id -> "?")
+                    .collect(Collectors.joining(","));
+            String sql = "SELECT * FROM " + DbConstants.TABLE_TESTS + " WHERE " +
+                    DbConstants.COLUMN_TESTS_ID + " IN (" + placeholders + ");";
+            List<QuestionModel> results = new ArrayList<>();
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                int index = 1;
+                for (Integer id : questionIds) {
+                    statement.setInt(index++, id);
+                }
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        QuestionModel result = new QuestionModel(
+                                rs.getInt(DbConstants.COLUMN_TESTS_ID),
+                                rs.getString(DbConstants.COLUMN_TESTS_QUESTION),
+                                Arrays.asList(
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_1),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_2),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_3),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_4)
+                                ),
+                                rs.getString(DbConstants.COLUMN_TESTS_CORRECT_ANSWER)
+                        );
+                        results.add(result);
+                    }
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении списка вопросов", e);
+                throw new CompletionException(e);
+            }
+            return results;
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные вопросов", e);
+            return Collections.emptyList();
+        });
+    }
+
+    public CompletableFuture<List<QuestionModel>> getAllQuestions() {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM " + DbConstants.TABLE_TESTS + ";";
+            List<QuestionModel> results = new ArrayList<>();
+            try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        QuestionModel result = new QuestionModel(
+                                rs.getInt(DbConstants.COLUMN_TESTS_ID),
+                                rs.getString(DbConstants.COLUMN_TESTS_QUESTION),
+                                Arrays.asList(
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_1),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_2),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_3),
+                                        rs.getString(DbConstants.COLUMN_TESTS_ANSWER_4)
+                                ),
+                                rs.getString(DbConstants.COLUMN_TESTS_CORRECT_ANSWER)
+                        );
+                        results.add(result);
+                    }
+                }
+            } catch (SQLException e) {
+                db.getLogger().debug("Ошибка при получении списка вопросов", e);
+                throw new CompletionException(e);
+            }
+            return results;
+        }).exceptionally(e -> {
+            db.getLogger().error("Не удалось получить данные вопросов", e);
+            return Collections.emptyList();
+        });
+    }
 
     private String convertListIdToString(List<Long> list) {
         if (list == null) return null;
