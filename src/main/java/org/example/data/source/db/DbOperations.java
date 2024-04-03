@@ -575,6 +575,7 @@ public class DbOperations {
         });
     }
 
+
     private String convertListIdToString(List<Long> list) {
         if (list == null) return null;
         return list.stream().map(Object::toString).collect(Collectors.joining(","));

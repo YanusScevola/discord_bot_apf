@@ -1,5 +1,6 @@
 package org.example.core.models;
 
+import java.util.Collections;
 import java.util.List;
 
 public class Question {
@@ -7,13 +8,13 @@ public class Question {
     private String text;
     private List<String> answers;
     private String correctAnswer;
-    public Question() {
-    }
+
     public Question(int id, String text, List<String> answers, String correctAnswer) {
         this.id = id;
         this.text = text;
         this.answers = answers;
         this.correctAnswer = correctAnswer;
+        Collections.shuffle(this.answers);
     }
 
     public int getId() {

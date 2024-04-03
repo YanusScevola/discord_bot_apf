@@ -329,6 +329,25 @@ public class ApiService {
         return resultFuture;
     }
 
+    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ButtonInteractionEvent event) {
+        CompletableFuture<InteractionHook> resultFuture = new CompletableFuture<>();
+
+        if (!event.isAcknowledged()) {
+            event.deferReply(true).queue(
+                    resultFuture::complete,
+                    failure -> {
+                        System.err.println("Не удалось отложить ответ: " + failure.getMessage());
+                        resultFuture.completeExceptionally(failure);
+                    }
+            );
+        } else {
+            System.err.println("Взаимодействие уже обработано");
+            resultFuture.completeExceptionally(new IllegalStateException("Взаимодействие уже обработано"));
+        }
+
+        return resultFuture;
+    }
+
     public CompletableFuture<Boolean> processingMicrophone(List<Member> members, boolean mute) {
         if (members.isEmpty()) {
             return CompletableFuture.completedFuture(true); // Список участников пуст, считаем операцию успешной

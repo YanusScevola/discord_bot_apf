@@ -21,6 +21,8 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.managers.AudioManager;
 
+import org.example.core.models.Question;
+import org.example.core.models.TestDataByUser;
 import org.example.resources.StringRes;
 import org.example.core.constants.CategoriesID;
 import org.example.core.constants.RolesID;
@@ -32,16 +34,23 @@ import org.jetbrains.annotations.NotNull;
 public class SubscribeController {
     private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
-
     private static final int START_DEBATE_TIMER = 5; //60
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
     private static final String UNSUBSCRIBE_BTN_ID = "unsubscribe";
+    private static final String START_TEST_ID = "start_test";
+    private static final String ANSWER_A_ID = "answer_a";
+    private static final String ANSWER_B_ID = "answer_b";
+    private static final String ANSWER_C_ID = "answer_c";
+    private static final String ANSWER_D_ID = "answer_d";
+    private static final String CLOSE_TEST_ID = "close_test";
+
+    private static final int MAX_QUESTIONS = 10;
+
 
     private final RatingController ratingController;
     private final HistoryController historyController;
-    private final TestController testController;
 
     private final TextChannel channel;
     private final UseCase useCase;
@@ -50,6 +59,14 @@ public class SubscribeController {
     private final List<String> voiceChannelsNames;
     private final List<Member> subscribeDebatersList = new ArrayList<>();
     private final List<Member> subscribeJudgesList = new ArrayList<>();
+    private final Map<String, Integer> answerButtonIdByAnswersIndex = Map.of(
+            ANSWER_A_ID, 0,
+            ANSWER_B_ID, 1,
+            ANSWER_C_ID, 2,
+            ANSWER_D_ID, 3
+    );
+
+    private LinkedHashMap<Member, TestDataByUser> testDataByUserMap = new LinkedHashMap<>();
 
     private long timerForStartDebate = 0;
     private boolean isDebateStarted = false;
@@ -61,7 +78,6 @@ public class SubscribeController {
         this.channel = useCase.getTextChannel(TextChannelsID.SUBSCRIBE);
         this.ratingController = RatingController.getInstance(useCase);
         this.historyController = HistoryController.getInstance(useCase);
-        this.testController = TestController.getInstance(useCase, channel);
 
         debaterRoles = List.of(
                 RolesID.HEAD_GOVERNMENT,
@@ -86,6 +102,9 @@ public class SubscribeController {
             case DEBATER_SUBSCRIBE_BTN_ID -> onClickDebaterSubscribeBtn(event, member);
             case JUDGE_SUBSCRIBE_BTN_ID -> onClickJudgeSubscribeBtn(event, member);
             case UNSUBSCRIBE_BTN_ID -> onClickUnsubscribe(event, member);
+            case START_TEST_ID -> onClickStartTest(event, member);
+            case ANSWER_A_ID, ANSWER_B_ID, ANSWER_C_ID, ANSWER_D_ID -> onClickAnswer(event, member);
+            case CLOSE_TEST_ID -> onClickCloseTest(event, member);
         }
     }
 
@@ -105,12 +124,12 @@ public class SubscribeController {
 
     private void showSubscribeMessage() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.setColor(new Color(54, 57, 63));
+        embedBuilder.setColor(new Color(88, 100, 242));
         embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
         embedBuilder.addField(StringRes.TITLE_DEBATER_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
         embedBuilder.addField(StringRes.TITLE_JUDGES_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
 
-        Button debaterButton = Button.success(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER);
+        Button debaterButton = Button.primary(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER);
         Button judgeButton = Button.primary(JUDGE_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_JUDGE);
         Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, StringRes.BUTTON_UNSUBSCRIBE);
 
@@ -129,33 +148,32 @@ public class SubscribeController {
     }
 
     private void onClickDebaterSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
-            if (event.getMember() == null) return;
+        if (event.getMember() == null) return;
 
-            AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
+        if (isMemberHasDebaterRole(event.getMember())) {
+            useCase.showEphemeralLoading(event).thenAccept(message -> {
+                AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
 
-            if (voiceChannel == null) {
-                message.editOriginal(StringRes.WARNING_NEED_WAITING_ROOM).queue();
-                return;
-            }
+                if (voiceChannel == null) {
+                    message.editOriginal(StringRes.WARNING_NEED_WAITING_ROOM).queue();
+                    return;
+                }
 
-            if (isMemberNotInWaitingRoom(voiceChannel)) {
-                message.editOriginal(StringRes.WARNING_NEED_WAITING_ROOM).queue();
-                return;
-            }
+                if (isMemberNotInWaitingRoom(voiceChannel)) {
+                    message.editOriginal(StringRes.WARNING_NEED_WAITING_ROOM).queue();
+                    return;
+                }
 
-            if (!isMemberHasDebaterRole(event.getMember())) {
-                showNeedToStartTestEmbed(message);
-                return;
-            }
+                if (subscribeDebatersList.contains(member)) {
+                    message.editOriginal(StringRes.WARNING_ALREADY_DEBATER).queue();
+                    return;
+                }
 
-            if (subscribeDebatersList.contains(member)) {
-                message.editOriginal(StringRes.WARNING_ALREADY_DEBATER).queue();
-                return;
-            }
-
-            addDebaterToList(member, () -> message.editOriginal(StringRes.REMARK_DEBATER_ADDED).queue());
-        });
+                addDebaterToList(member, () -> message.editOriginal(StringRes.REMARK_DEBATER_ADDED).queue());
+            });
+        } else {
+            useCase.showEphemeral(event).thenAccept(this::showNeedToStartTestEmbed);
+        }
     }
 
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
@@ -206,6 +224,44 @@ public class SubscribeController {
         });
     }
 
+    private void onClickStartTest(ButtonInteractionEvent event, Member member) {
+        useCase.getAllQuestions().thenAccept(questions -> {
+            TestDataByUser testDataByUser = new TestDataByUser(member, questions);
+            if (testDataByUserMap.size() > 20) {
+                removeFirstEntry(testDataByUserMap);
+            }
+            testDataByUserMap.put(member, testDataByUser);
+            showQuestion(event, 1);
+        });
+    }
+
+    private void onClickAnswer(ButtonInteractionEvent event, Member member) {
+        TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
+        Question currentQuestion = currentTestData.getCurrentQuestion();
+
+        if (currentTestData.getCurrentQuestionNumber() >= MAX_QUESTIONS) {
+            showTestSuccess(event);
+            return;
+        }
+
+        String selectedAnswer = currentQuestion.getAnswers().get(answerButtonIdByAnswersIndex.get(event.getComponentId()));
+        boolean isSelectedAnswerCorrect = currentQuestion.getCorrectAnswer().equals(selectedAnswer);
+
+        if (isSelectedAnswerCorrect) {
+            showQuestion(event, currentTestData.getCurrentQuestionNumber() + 1);
+        } else {
+            showTestFailed(event);
+        }
+    }
+
+    private void onClickCloseTest(ButtonInteractionEvent event, Member member) {
+        event.deferEdit().queue();
+        event.getHook().deleteOriginal().queue(
+                success -> System.out.println("Эфемерное сообщение удалено"),
+                failure -> System.err.println("Ошибка при удалении эфемерного сообщения: " + failure.getMessage())
+        );
+    }
+
     private void startDebateTimer(long messageId, EmbedBuilder embed) {
         timerForStartDebate = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
         embed.addField(StringRes.TITLE_TIMER, "<t:" + timerForStartDebate + ":R>", false);
@@ -234,14 +290,10 @@ public class SubscribeController {
 
         channel.editMessageEmbedsById(message.getId(), embedBuilder.build())
                 .setActionRow(
-                        Button.success(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER).asDisabled(),
+                        Button.primary(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER).asDisabled(),
                         Button.primary(JUDGE_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_JUDGE).asDisabled(),
                         Button.danger(UNSUBSCRIBE_BTN_ID, StringRes.BUTTON_UNSUBSCRIBE).asDisabled()
                 ).queue();
-    }
-
-    private void finalizeDebateStart() {
-
     }
 
     private void createVoiceChannels(List<String> channelNames) {
@@ -341,7 +393,7 @@ public class SubscribeController {
             if (!history.isEmpty()) {
                 Message message = history.getRetrievedHistory().get(0);
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.setColor(new Color(54, 57, 63));
+                embedBuilder.setColor(new Color(88, 100, 242));
                 embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
 
                 List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).toList();
@@ -352,7 +404,7 @@ public class SubscribeController {
                 String judgeListString = judges.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : String.join("\n", judges);
                 embedBuilder.addField(StringRes.TITLE_JUDGES_LIST, judgeListString, true);
 
-                Button debaterButton = Button.success(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER);
+                Button debaterButton = Button.primary(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER);
                 Button judgeButton = Button.primary(JUDGE_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_JUDGE);
                 Button unsubscribeButton = Button.danger(UNSUBSCRIBE_BTN_ID, StringRes.BUTTON_UNSUBSCRIBE);
 
@@ -367,21 +419,94 @@ public class SubscribeController {
         });
     }
 
-    private void showNeedToStartTestEmbed(InteractionHook message) {
+    public void showNeedToStartTestEmbed(InteractionHook message) {
         EmbedBuilder embed = new EmbedBuilder();
+        embed.setColor(new Color(88, 100, 242));
         embed.setTitle("У вас нету роли дебатер.\nЧтобы получить роль нужно пройти тест на знание правил.");
         embed.setDescription("""
                 - Чтобы подгоовиться к тесту прочитайте правила дебатов АПФ.\s
                 - В тесте 20 вопросов, и 4 варианта ответа.\s
                 - На каждый вопрос выделяется 30 секунд.
+                - Тест автоматически закончится через 15 минут.
                 """);
 
-        Button startTestButton = Button.primary("test:start", "Начать тест");
+        Button startTestButton = Button.primary(START_TEST_ID, "Начать тест");
 
         message.editOriginalEmbeds(embed.build())
                 .setActionRow(startTestButton)
-                .queue();
+                .queue(
+                        success -> System.out.println("1Сообщение изменено"),
+                        failure -> System.err.println("1Не удалось изменить оригинальное сообщение: ")
+                );
     }
+
+    public void showQuestion(ButtonInteractionEvent event, int questionNumber) {
+        TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
+
+        if (currentTestData.getQuestions().isEmpty()) {
+            System.err.println("Список вопросов пуст");
+            return;
+        }
+
+        Question currentQuestion = currentTestData.getQuestions().get(questionNumber - 1);
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setColor(new Color(88, 100, 242));
+        embed.setTitle(currentQuestion.getText());
+        embed.setFooter((questionNumber) + " из " + MAX_QUESTIONS);
+
+        String answersText = "**A**: " + currentQuestion.getAnswers().get(0) + "\n" +
+                "**B**: " + currentQuestion.getAnswers().get(1) + "\n" +
+                "**C**: " + currentQuestion.getAnswers().get(2) + "\n" +
+                "**D**: " + currentQuestion.getAnswers().get(3);
+        embed.setDescription(answersText);
+
+        Button a = Button.primary(ANSWER_A_ID, "A");
+        Button b = Button.primary(ANSWER_B_ID, "B");
+        Button c = Button.primary(ANSWER_C_ID, "C");
+        Button d = Button.primary(ANSWER_D_ID, "D");
+
+        event.editMessageEmbeds(embed.build())
+                .setActionRow(a, b, c, d)
+                .queue(
+                        success -> {
+                            currentTestData.setCurrentQuestion(currentQuestion);
+                            currentTestData.setCurrentQuestionNumber(questionNumber);
+                            System.out.println("1Сообщение изменено");
+                        },
+                        failure -> System.err.println("1Не удалось изменить оригинальное сообщение: " + failure.getMessage())
+                );
+
+
+    }
+
+    public void showTestSuccess(ButtonInteractionEvent event) {
+        Map<Member, Long> members = Map.of(Objects.requireNonNull(event.getMember()), RolesID.DEBATER_APF);
+        useCase.addRolesToMembers(members).thenAccept(success -> {
+            EmbedBuilder winEmbed = new EmbedBuilder();
+            winEmbed.setColor(new Color(36, 128, 70));
+            winEmbed.setTitle("Тест пройден");
+            winEmbed.setDescription("Вы правильно ответили на " + MAX_QUESTIONS + " вопросов.");
+
+            event.editMessageEmbeds(winEmbed.build()).queue(
+                    success1 -> System.out.println("Сообщение изменено"),
+                    failure -> System.err.println("Не удалось изменить оригинальное сообщение: " + failure.getMessage()));
+        });
+    }
+
+    public void showTestFailed(ButtonInteractionEvent event) {
+        TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
+        EmbedBuilder lossEmbed = new EmbedBuilder();
+        lossEmbed.setColor(new Color(158, 26, 26));
+        lossEmbed.setTitle("Тест провален :cry:");
+        lossEmbed.setDescription("- Вы правильно ответили на " + (currentTestData.getCurrentQuestionNumber()) + " из " + MAX_QUESTIONS + " вопросов.\n" +
+                "- Попробуйте еще раз через 10 минут.");
+
+        event.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
+                success -> System.out.println("2Сообщение изменено"),
+                failure -> System.err.println("2Не удалось изменить оригинальное сообщение: " + failure.getMessage()));
+    }
+
 
     private void addDebaterToList(Member member, Runnable callback) {
         subscribeDebatersList.add(member);
@@ -449,5 +574,15 @@ public class SubscribeController {
 
     private boolean isMemberInList(String list, Member member) {
         return list != null && list.contains(member.getAsMention());
+    }
+
+    private static <K, V> void removeFirstEntry(LinkedHashMap<K, V> map) {
+        // Получение итератора для ключей map
+        Iterator<K> iterator = map.keySet().iterator();
+        // Проверка, есть ли элемент для удаления
+        if (iterator.hasNext()) {
+            K firstKey = iterator.next(); // Получение первого ключа
+            map.remove(firstKey); // Удаление первого элемента по ключу
+        }
     }
 }

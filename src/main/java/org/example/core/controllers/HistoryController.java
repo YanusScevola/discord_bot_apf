@@ -46,7 +46,7 @@ public class HistoryController {
             }
 
             embed.setColor(new Color(88, 100, 242));
-            embed.setTitle("Тема: " + addNewLineAfterEveryFourthWord(lastDebate.getTheme().getName()) + "\n ㅤ ");
+            embed.setTitle("Тема: " + getShortString(lastDebate.getTheme().getName()) + "\n ㅤ ");
             embed.addField(iconForGovernment + "Правительство", governmentDebatersString.toString(), true);
             embed.addField(iconForOpposition + "Оппозиция", oppositionDebatersString.toString(), true);
 
@@ -59,7 +59,7 @@ public class HistoryController {
 
     }
 
-    public String addNewLineAfterEveryFourthWord(String input) {
+    public String getShortString(String input) {
         String[] words = input.split("\\s+");
         StringBuilder result = new StringBuilder();
         int wordCount = 0;

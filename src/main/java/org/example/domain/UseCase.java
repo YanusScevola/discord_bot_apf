@@ -100,6 +100,10 @@ public class UseCase {
         return apiService.showEphemeralLoading(event);
     }
 
+    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ButtonInteractionEvent event) {
+        return apiService.showEphemeral(event);
+    }
+
     public CompletableFuture<Boolean> deleteVoiceChannels(List<VoiceChannel> channels) {
         return apiService.deleteVoiceChannels(channels);
     }
@@ -619,12 +623,11 @@ public class UseCase {
     public CompletableFuture<List<Question>> getQuestions(List<Integer> questionIds) {
         return dataBase.getQuestions(questionIds).thenApply(questionModels -> questionModels.stream()
                 .map(questionModel -> {
-                    Question question = new Question();
-                    question.setId(questionModel.getId());
-                    question.setText(questionModel.getText());
-                    question.setAnswers(questionModel.getAnswers());
-                    question.setCorrectAnswer(questionModel.getCorrectAnswer());
-                    return question;
+                    return new Question(
+                            questionModel.getId(),
+                            questionModel.getText(),
+                            questionModel.getAnswers(),
+                            questionModel.getCorrectAnswer());
                 })
                 .collect(Collectors.toList()));
     }
@@ -632,12 +635,12 @@ public class UseCase {
     public CompletableFuture<List<Question>> getAllQuestions() {
         return dataBase.getAllQuestions().thenApply(questionModels -> questionModels.stream()
                 .map(questionModel -> {
-                    Question question = new Question();
-                    question.setId(questionModel.getId());
-                    question.setText(questionModel.getText());
-                    question.setAnswers(questionModel.getAnswers());
-                    question.setCorrectAnswer(questionModel.getCorrectAnswer());
-                    return question;
+                    return new Question(
+                            questionModel.getId(),
+                            questionModel.getText(),
+                            questionModel.getAnswers(),
+                            questionModel.getCorrectAnswer()
+                    );
                 })
                 .collect(Collectors.toList()));
     }
