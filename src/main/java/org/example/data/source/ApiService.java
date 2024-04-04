@@ -307,7 +307,7 @@ public class ApiService {
         if (!event.isAcknowledged()) {
             event.deferReply(true).queue(
                     hook -> {
-                        hook.deleteOriginal().queueAfter(8, TimeUnit.SECONDS,
+                        hook.deleteOriginal().queueAfter(5, TimeUnit.SECONDS,
                                 null,
                                 failure -> {
                                     System.err.println("Не удалось удалить оригинальное сообщение: " + failure.getMessage());

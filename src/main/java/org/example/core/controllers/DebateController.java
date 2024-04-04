@@ -24,7 +24,7 @@ import org.example.core.player.PlayerManager;
 import org.example.resources.StringRes;
 import org.example.core.constants.RolesID;
 import org.example.core.constants.enums.Winner;
-import org.example.core.utils.StageTimer;
+import org.example.core.stagetimer.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {

@@ -565,11 +565,13 @@ public class DbOperations {
                     }
                 }
             } catch (SQLException e) {
+                System.err.println(e.getMessage());
                 db.getLogger().debug("Ошибка при получении списка вопросов", e);
                 throw new CompletionException(e);
             }
             return results;
         }).exceptionally(e -> {
+            System.err.println(e.getMessage());
             db.getLogger().error("Не удалось получить данные вопросов", e);
             return Collections.emptyList();
         });

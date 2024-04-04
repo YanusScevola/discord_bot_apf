@@ -49,25 +49,14 @@ public class RatingController {
                     StringBuilder listWins = new StringBuilder();
                     StringBuilder listLosses = new StringBuilder();
 
-                    for (int i = 0; i < 5; i++) {
-                        Debater debater = limitedDebaters.get(0);
-//                for (Debater debater : limitedDebaters) {
+//                    for (int i = 0; i < 5; i++) {
+//                    Debater debater = limitedDebaters.get(0);
+                    for (Debater debater : limitedDebaters) {
                         if (debaterRatingNumber == 1) {
                             listDebaters.append("1" + " : ").append("<@").append(debater.getMemberId()).append(">\n");
-                        }else {
-                            listDebaters.append(debaterRatingNumber).append(": ").append("<@").append(debater.getMemberId()).append(">\n");
+                        } else {
+                            listDebaters.append(debaterRatingNumber).append(". ").append("<@").append(debater.getMemberId()).append(">\n");
                         }
-
-//                        if (debaterRatingNumber == 1) {
-//                            listDebaters.append(":first_place:" + ": ").append("<@").append(debater.getMemberId()).append(">\n");
-//                        } else if (debaterRatingNumber == 2) {
-//                            listDebaters.append(":second_place:" + ": ").append("<@").append(debater.getMemberId()).append(">\n");
-//                        } else if (debaterRatingNumber == 3) {
-//                            listDebaters.append(":third_place:" + ": ").append("<@").append(debater.getMemberId()).append(">\n");
-//                        } else {
-//                            listDebaters.append(" ").append(debaterRatingNumber).append(" : ").append("<@").append(debater.getMemberId()).append(">\n");
-//                        }
-
 
                         listWins.append("").append(debater.getWinnCount()).append("\n");
                         listLosses.append("").append(debater.getLossesCount()).append("\n");
