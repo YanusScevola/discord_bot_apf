@@ -152,7 +152,7 @@ public class DebateController {
     }
 
     private void onClickAskQuestionBtn(ButtonInteractionEvent event) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (allDebaters.contains(event.getMember())) {
                 if (currentStage == Stage.MEMBER_GOVERNMENT_SPEECH) {
                     if (oppositionDebaters.contains(event.getMember())) {
@@ -174,7 +174,7 @@ public class DebateController {
     }
 
     private void onClickEndSpeechBtn(ButtonInteractionEvent event) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             Member member = event.getMember();
             boolean canEndSpeech = (currentStage == Stage.HEAD_GOVERNMENT_FIRST_SPEECH && headGovernment.equals(member)) ||
                     (currentStage == Stage.HEAD_OPPOSITION_FIRST_SPEECH && headOpposition.equals(member)) ||
@@ -194,7 +194,7 @@ public class DebateController {
     }
 
     private void onClickEndDebateBtn(ButtonInteractionEvent event) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (allDebaters.contains(event.getMember())) {
                 message.editOriginal(StringRes.WARNING_NOT_IMPLEMENTED).queue();
             } else {
@@ -204,7 +204,7 @@ public class DebateController {
     }
 
     private void onClickVoteGovernmentBtn(ButtonInteractionEvent event) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.GOVERNMENT, () -> {
                     message.editOriginal(StringRes.REMARK_VOTE_GOVERNMENT).queue();
@@ -216,7 +216,7 @@ public class DebateController {
     }
 
     private void onClickVoteOppositionBtn(ButtonInteractionEvent event) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.OPPOSITION, () -> {
                     message.editOriginal(StringRes.REMARK_VOTE_OPPOSITION).queue();
@@ -656,7 +656,7 @@ public class DebateController {
     private void voteForWinner(ButtonInteractionEvent event, Winner voteFor, Runnable callback) {
         System.out.println("VOTE FOR " + voteFor);
         if (votedJudges.contains(event.getMember())) {
-            useCase.showEphemeralLoading(event).thenAccept(message -> {
+            useCase.showEphemeralShortLoading(event).thenAccept(message -> {
                 message.editOriginal(StringRes.WARNING_ALREADY_VOTED).queue();
             });
             return;

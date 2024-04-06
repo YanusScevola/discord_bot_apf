@@ -1,6 +1,8 @@
 package org.example.data.source.db;
 
 import java.sql.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,14 +11,14 @@ public class Database {
     private static Database instance;
     private Connection connection;
     private static final Logger logger = LoggerFactory.getLogger(Database.class);
+    private static final String USER_NAME = "u5068_AgJsVUDQAd";
+    private static final String PASSWORD = "Q^@mZ7JmQlJ04L4oxHGshasT";
+    private static final String URL = "jdbc:mysql://u5068_AgJsVUDQAd:Q%5E%40mZ7JmQlJ04L4oxHGshasT@172.105.158.16:3306/s5068_debate_club?autoReconnect=true";
 
     private Database() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            String username = "u5068_AgJsVUDQAd";
-            String password = "Q^@mZ7JmQlJ04L4oxHGshasT";
-            String url = "jdbc:mysql://u5068_AgJsVUDQAd:Q%5E%40mZ7JmQlJ04L4oxHGshasT@172.105.158.16:3306/s5068_debate_club?autoReconnect=true";
-            this.connection = DriverManager.getConnection(url, username, password);
+            this.connection = DriverManager.getConnection(URL, USER_NAME, PASSWORD);
 
             createVersionTable();
             createThemesTable();
@@ -184,5 +186,45 @@ public class Database {
             logger.debug("Ошибка подключения к БД");
         }
     }
+
+    public CompletableFuture<Boolean> executeWithConnection() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (connection == null || connection.isClosed() || !connection.isValid(5)) {
+                    return reconnect().get();
+                }
+                return true;
+            } catch (SQLException | InterruptedException | ExecutionException e) {
+                System.err.println("Ошибка при проверке соединения с базой данных или при попытке переподключения");
+                logger.debug("Ошибка при проверке соединения с базой данных или при попытке переподключения", e);
+                return false;
+            } catch (Exception e) {
+                System.err.println("Ошибка при попытке переподключения к базе данных");
+                logger.debug("Ошибка при попытке переподключения к базе данных", e);
+                return false;
+            }
+        });
+    }
+
+    CompletableFuture<Boolean> reconnect() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                connection = DriverManager.getConnection(URL, USER_NAME, PASSWORD);
+                System.out.println("Соединение с базой данных успешно восстановлено.");
+                logger.debug("Соединение с базой данных успешно восстановлено.");
+                return true;
+            } catch (SQLException e) {
+                System.err.println("Ошибка при попытке восстановить соединение с базой данных");
+                logger.debug("Ошибка при попытке восстановить соединение с базой данных", e);
+                return false;
+            }
+        });
+    }
+
+//    private void reconnect() throws SQLException {
+//        connection = DriverManager.getConnection(URL, USER_NAME, PASSWORD);
+//        logger.debug("Соединение с базой данных успешно восстановлено.");
+//    }
+
 
 }

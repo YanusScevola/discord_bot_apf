@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
+import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.data.source.ApiService;
 import org.example.data.source.db.DbOperations;
@@ -90,5 +91,6 @@ public class MainListenerAdapter extends ListenerAdapter {
             }
         }
     }
+
 
 }

@@ -96,8 +96,8 @@ public class UseCase {
         return apiService.processingMicrophone(members, false);
     }
 
-    public CompletableFuture<InteractionHook> showEphemeralLoading(@NotNull ButtonInteractionEvent event) {
-        return apiService.showEphemeralLoading(event);
+    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ButtonInteractionEvent event) {
+        return apiService.showEphemeralShortLoading(event);
     }
 
     public CompletableFuture<InteractionHook> showEphemeral(@NotNull ButtonInteractionEvent event) {

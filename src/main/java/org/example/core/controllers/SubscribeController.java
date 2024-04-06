@@ -8,7 +8,6 @@ import java.util.concurrent.*;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
@@ -34,6 +33,7 @@ public class SubscribeController {
     private static final int JUDGES_LIMIT = 1; //1
     private static final int START_DEBATE_TIMER = 5; //60
     private static final int TEST_TIMER = 20; //20
+    private static final int TEST_ATTEMPTS = 1;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -63,6 +63,9 @@ public class SubscribeController {
     private final List<Member> subscribeDebatersList = new ArrayList<>();
     private final List<Member> subscribeJudgesList = new ArrayList<>();
     private final LinkedHashMap<Member, TestDataByUser> testDataByUserMap = new LinkedHashMap<>();
+    private final LinkedHashMap<Long, Long> lastTestAttemptByUser = new LinkedHashMap<>();
+    private final Map<Long, InteractionHook> memberByNeedToStartTestHook = new ConcurrentHashMap<>();
+
     private final Map<String, Integer> answerButtonIdByAnswersIndex = Map.of(
             ANSWER_A_ID, 0,
             ANSWER_B_ID, 1,
@@ -148,11 +151,13 @@ public class SubscribeController {
         if (event.getMember() == null) return;
 
         if (!isMemberHasDebaterRole(event.getMember())) {
-            useCase.showEphemeral(event).thenAccept(this::showNeedToStartTestEmbed);
+            useCase.showEphemeral(event).thenAccept(hook -> {
+                showNeedToStartTestEmbed(hook, member);
+            });
             return;
         }
 
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
 
             if (voiceChannel == null) {
@@ -179,10 +184,12 @@ public class SubscribeController {
         if (event.getMember() == null) return;
 
         if (!isMemberHasDebaterRole(event.getMember())) {
-            useCase.showEphemeral(event).thenAccept(this::showNeedToStartTestEmbed);
+            useCase.showEphemeral(event).thenAccept(hook -> {
+                showNeedToStartTestEmbed(hook, member);
+            });
             return;
         }
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
 
             if (voiceChannel == null || isMemberNotInWaitingRoom(voiceChannel)) {
@@ -205,7 +212,7 @@ public class SubscribeController {
     }
 
     private void onClickUnsubscribe(ButtonInteractionEvent event, Member member) {
-        useCase.showEphemeralLoading(event).thenAccept(message -> {
+        useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             channel.getHistoryFromBeginning(1).queue(history -> {
                 if (history.isEmpty()) {
                     message.editOriginal(StringRes.WARNING_NEED_SUBSCRIBED).queue();
@@ -228,8 +235,22 @@ public class SubscribeController {
     }
 
     private void onClickStartTest(ButtonInteractionEvent event, Member member) {
+        long currentTimeMillis = System.currentTimeMillis();
+        boolean hasAttempt = lastTestAttemptByUser.containsKey(member.getIdLong());
+        long timeSinceLastAttempt = hasAttempt ? currentTimeMillis - lastTestAttemptByUser.get(member.getIdLong()) : Long.MAX_VALUE;
+        boolean isCoolDownPassed = timeSinceLastAttempt >= TimeUnit.MINUTES.toMillis(TEST_ATTEMPTS);
+        long nextAttemptTime = hasAttempt ? (lastTestAttemptByUser.get(member.getIdLong()) + TimeUnit.MINUTES.toMillis(TEST_ATTEMPTS)) / 1000 : 0;
+
+        if (hasAttempt && !isCoolDownPassed) {
+            String textMessage = String.format("Вы можете начать тест заново только <t:%d:R> после последней попытки.", nextAttemptTime);
+            useCase.showEphemeralShortLoading(event).thenAccept(hook -> {
+                hook.editOriginal(textMessage).queue();
+            });
+            return;
+        }
+
         if (testDataByUserMap.containsKey(event.getMember())) {
-            useCase.showEphemeralLoading(event).thenAccept(message -> {
+            useCase.showEphemeralShortLoading(event).thenAccept(message -> {
                 message.editOriginal("Тест уже начат, подождите пока он закончится").queue();
             });
             return;
@@ -239,23 +260,21 @@ public class SubscribeController {
             removeFirstEntry(testDataByUserMap);
         }
 
-        useCase.getAllQuestions().thenAccept(questions -> {
-            showFirstQuestion(event, questions);
-        });
+        if(lastTestAttemptByUser.size() > 20) {
+            removeFirstEntry(lastTestAttemptByUser);
+        }
 
+        event.deferReply(true).queue(loadingHook -> {
+            useCase.getAllQuestions().thenAccept(questions -> {
+                loadingHook.deleteOriginal().queue();
+                showFirstQuestion(member, questions);
+            });
+        });
     }
 
     private void onClickAnswer(ButtonInteractionEvent event, Member member) {
         TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
         ScheduledFuture<?> currentTimer = currentTestData.getTimers().remove(member);
-
-        if (currentTestData.getCurrentQuestionNumber() >= MAX_QUESTIONS) {
-            if (currentTimer != null) {
-                currentTimer.cancel(false);
-            }
-            showTestSuccess(event);
-            return;
-        }
 
         Question currentQuestion = currentTestData.getCurrentQuestion();
         String selectedAnswer = currentQuestion.getAnswers().get(answerButtonIdByAnswersIndex.get(event.getComponentId()));
@@ -265,7 +284,12 @@ public class SubscribeController {
             if (currentTimer != null) {
                 currentTimer.cancel(false);
             }
-            showQuestion(event, currentTestData.getCurrentQuestionNumber() + 1);
+
+            if (currentTestData.getCurrentQuestionNumber() == MAX_QUESTIONS) {
+                showTestSuccess(event);
+                return;
+            }
+            showNextQuestion(event, currentTestData.getCurrentQuestionNumber() + 1);
         } else {
             showTestFailed(event);
         }
@@ -436,22 +460,24 @@ public class SubscribeController {
         });
     }
 
-    public void showNeedToStartTestEmbed(InteractionHook message) {
+    public void showNeedToStartTestEmbed(InteractionHook message, Member member) {
         EmbedBuilder embed = new EmbedBuilder();
         embed.setColor(new Color(88, 100, 242));
-        embed.setDescription("**:warning: У вас нету роли <@&" + RolesID.DEBATER_APF +">. Чтобы получить данную роль необходимо пройти тест на знание правил дебатов АПФ.**\n\n" +
-                "- Чтобы подготовиться к тесту пройдите в канал <#" + TextChannelsID.RULES +">.\n" +
+        embed.setDescription("**:warning: У вас нету роли <@&" + RolesID.DEBATER_APF + ">. Чтобы получить данную роль необходимо пройти тест на знание правил дебатов АПФ.**\n\n" +
+                "- Чтобы подготовиться к тесту пройдите в канал <#" + TextChannelsID.RULES + ">.\n" +
                 "- В тесте будут " + MAX_QUESTIONS + " вопросов и 4 варианта ответа.\n" +
                 "- На каждый вопрос выделяется " + TEST_TIMER + " секунд.\n");
 
         Button startTestButton = Button.primary(START_TEST_ID, "Начать тест");
+
+        memberByNeedToStartTestHook.put(member.getIdLong(), message);
 
         message.editOriginalEmbeds(embed.build())
                 .setActionRow(startTestButton)
                 .queue();
     }
 
-    public void showQuestion(ButtonInteractionEvent event, int questionNumber) {
+    public void showNextQuestion(ButtonInteractionEvent event, int questionNumber) {
         TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
 
         if (currentTestData.getQuestions().isEmpty()) {
@@ -507,64 +533,64 @@ public class SubscribeController {
                 );
     }
 
-    public void showFirstQuestion(ButtonInteractionEvent event, List<Question> questions) {
-        TestDataByUser testDataByUser = new TestDataByUser(event.getMember(), questions);
-        testDataByUserMap.put(event.getMember(), testDataByUser);
-        showQuestion(event, 1);
+    public void showFirstQuestion(Member member, List<Question> questions) {
+        TestDataByUser currentTestData = new TestDataByUser(member, questions);
 
-//        TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
-//
-//        if (currentTestData.getQuestions().isEmpty()) {
-//            showTestFailed(event);
-//            System.err.println("Список вопросов пуст");
-//            return;
-//        }
-//
-//        ScheduledFuture<?> previousTimer = currentTestData.getTimers().remove(event.getMember());
-//        if (previousTimer != null) {
-//            previousTimer.cancel(false);
-//        }
-//
-//        Question currentQuestion = currentTestData.getQuestions().get(0);
-//        long currentTimeInSeconds = System.currentTimeMillis() / 1000L;
-//        long twentySecondsLater = currentTimeInSeconds + TEST_TIMER;
-//
-//        EmbedBuilder embed = new EmbedBuilder();
-//        embed.setColor(new Color(88, 100, 242));
-//        embed.setFooter(1 + " из " + MAX_QUESTIONS);
-//
-//        String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
-//        String questionText = "**" + currentQuestion.getText() + "**\n\n";
-//        String answersText = "**A**. " + currentQuestion.getAnswers().get(0) + "\n" +
-//                "**B**. " + currentQuestion.getAnswers().get(1) + "\n" +
-//                "**C**. " + currentQuestion.getAnswers().get(2) + "\n" +
-//                "**D**. " + currentQuestion.getAnswers().get(3) + "\n";
-//
-//        embed.setDescription(timerText + questionText + answersText);
-//
-//        Button a = Button.primary(ANSWER_A_ID, "A");
-//        Button b = Button.primary(ANSWER_B_ID, "B");
-//        Button c = Button.primary(ANSWER_C_ID, "C");
-//        Button d = Button.primary(ANSWER_D_ID, "D");
-//
-//        event.editMessageEmbeds(embed.build())
-//                .setActionRow(a, b, c, d)
-//                .queue(message -> {
-//                            currentTestData.setCurrentQuestion(currentQuestion);
-//                            currentTestData.setCurrentQuestionNumber(1);
-//
-//                            ScheduledFuture<?> timer = currentTestData
-//                                    .getScheduler()
-//                                    .schedule(() -> {
-//                                        showTestFailed(event.getMember(), message);
-//                                    }, TEST_TIMER, TimeUnit.SECONDS);
-//
-//                            currentTestData.getTimers().put(event.getMember(), timer);
-//
-//                            System.out.println("1Сообщение изменено");
-//                        },
-//                        failure -> System.err.println("1Не удалось изменить оригинальное сообщение: " + failure.getMessage())
-//                );
+        InteractionHook needToStartTestHook = memberByNeedToStartTestHook.get(member.getIdLong());
+        memberByNeedToStartTestHook.remove(member.getIdLong());
+
+        if (currentTestData.getQuestions().isEmpty()) {
+            showTestFailed(member, needToStartTestHook);
+            System.err.println("Список вопросов пуст");
+            return;
+        }
+
+        ScheduledFuture<?> previousTimer = currentTestData.getTimers().remove(member);
+        if (previousTimer != null) {
+            previousTimer.cancel(false);
+        }
+
+        Question currentQuestion = currentTestData.getQuestions().get(0);
+        long currentTimeInSeconds = System.currentTimeMillis() / 1000L;
+        long twentySecondsLater = currentTimeInSeconds + TEST_TIMER;
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setColor(new Color(88, 100, 242));
+        embed.setFooter((1) + " из " + MAX_QUESTIONS);
+
+        String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
+        String questionText = "**" + currentQuestion.getText() + "**\n\n";
+        String answersText = "**A**. " + currentQuestion.getAnswers().get(0) + "\n" +
+                "**B**. " + currentQuestion.getAnswers().get(1) + "\n" +
+                "**C**. " + currentQuestion.getAnswers().get(2) + "\n" +
+                "**D**. " + currentQuestion.getAnswers().get(3) + "\n";
+
+        embed.setDescription(timerText + questionText + answersText);
+
+        Button a = Button.primary(ANSWER_A_ID, "A");
+        Button b = Button.primary(ANSWER_B_ID, "B");
+        Button c = Button.primary(ANSWER_C_ID, "C");
+        Button d = Button.primary(ANSWER_D_ID, "D");
+
+        needToStartTestHook.editOriginalEmbeds(embed.build())
+                .setActionRow(a, b, c, d)
+                .queue(message -> {
+                            currentTestData.setCurrentQuestion(currentQuestion);
+                            currentTestData.setCurrentQuestionNumber(1);
+                            ScheduledFuture<?> timer = currentTestData
+                                    .getScheduler()
+                                    .schedule(() -> {
+                                        showTestFailed(member, message);
+                                    }, TEST_TIMER, TimeUnit.SECONDS);
+
+                            currentTestData.getTimers().put(member, timer);
+
+                            testDataByUserMap.put(member, currentTestData);
+
+                            System.out.println("1Сообщение изменено");
+                        },
+                        failure -> System.err.println("1Не удалось изменить оригинальное сообщение: " + failure.getMessage())
+                );
     }
 
     public void showTestSuccess(ButtonInteractionEvent event) {
@@ -592,16 +618,33 @@ public class SubscribeController {
         lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + MAX_QUESTIONS + " вопросов.\n" +
                 "- Перепройди тест через 10 минут.");
 
-
         event.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
                 success -> {
+                    lastTestAttemptByUser.put(Objects.requireNonNull(event.getMember()).getIdLong(), System.currentTimeMillis());
                     testDataByUserMap.remove(event.getMember());
                     System.out.println("2Сообщение изменено");
                 },
                 failure -> System.err.println("2Не удалось изменить оригинальное сообщение: " + failure.getMessage()));
     }
 
-    public void showTestFailed(Member member, InteractionHook message) {
+    public void showTestFailed(Member member, InteractionHook hook) {
+        TestDataByUser currentTestData = testDataByUserMap.get(member);
+        EmbedBuilder lossEmbed = new EmbedBuilder();
+        lossEmbed.setColor(new Color(158, 26, 26));
+        lossEmbed.setTitle("Тест провален :cry:");
+        lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + MAX_QUESTIONS + " вопросов.\n" +
+                "- Перепройди тест через 10 минут.");
+
+        hook.editOriginalEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
+                success -> {
+                    lastTestAttemptByUser.put(Objects.requireNonNull(member).getIdLong(), System.currentTimeMillis());
+                    testDataByUserMap.remove(member);
+                    System.out.println("2Сообщение изменено");
+                },
+                failure -> System.err.println("2Не удалось изменить оригинальное сообщение: " + failure.getMessage()));
+    }
+
+    public void showTestFailed(Member member, Message message) {
         TestDataByUser currentTestData = testDataByUserMap.get(member);
         EmbedBuilder lossEmbed = new EmbedBuilder();
         lossEmbed.setColor(new Color(158, 26, 26));
@@ -610,12 +653,14 @@ public class SubscribeController {
                 "- Перепройди тест через 10 минут.");
 
 
-        message.editOriginalEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
+        message.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
                 success -> {
+                    lastTestAttemptByUser.put(Objects.requireNonNull(member).getIdLong(), System.currentTimeMillis());
                     testDataByUserMap.remove(member);
                     System.out.println("2Сообщение изменено");
                 },
                 failure -> System.err.println("2Не удалось изменить оригинальное сообщение: " + failure.getMessage()));
+
     }
 
 
@@ -694,4 +739,5 @@ public class SubscribeController {
             map.remove(firstKey);
         }
     }
+
 }

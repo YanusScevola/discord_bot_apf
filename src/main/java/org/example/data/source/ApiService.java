@@ -16,9 +16,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ApiService {
@@ -301,7 +299,7 @@ public class ApiService {
     }
 
 
-    public CompletableFuture<InteractionHook> showEphemeralLoading(@NotNull ButtonInteractionEvent event) {
+    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ButtonInteractionEvent event) {
         CompletableFuture<InteractionHook> resultFuture = new CompletableFuture<>();
 
         if (!event.isAcknowledged()) {

@@ -80,4 +80,5 @@ public class TestDataByUser {
     public void setInProcess(boolean isInProcess) {
         this.isInProcess = isInProcess;
     }
+
 }
