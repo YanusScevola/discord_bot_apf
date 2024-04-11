@@ -144,6 +144,54 @@ public class ApiService {
 
         return resultFuture;
     }
+    public CompletableFuture<VoiceChannel> getVoiceChannelById(long channelId) {
+        CompletableFuture<VoiceChannel> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return future;
+        }
+        VoiceChannel channel = server.getVoiceChannelById(channelId);
+        if (channel == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого голосового канала"));
+            return future;
+        }
+        future.complete(channel);
+        return future;
+    }
+
+
+    public CompletableFuture<List<Member>> getMembersByRoles(List<Long> roleIds) {
+        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
+
+        if (server == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+            return resultFuture;
+        }
+
+        if (roleIds.isEmpty()) {
+            resultFuture.complete(new ArrayList<>());
+            return resultFuture;
+        }
+
+        List<Role> roles = roleIds.stream()
+                .map(server::getRoleById)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (roles.isEmpty()) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Нет таких ролей"));
+            return resultFuture;
+        }
+
+        server.loadMembers().onSuccess(members -> {
+            List<Member> filteredMembers = members.stream()
+                    .filter(member -> member.getRoles().containsAll(roles))
+                    .collect(Collectors.toList());
+            resultFuture.complete(filteredMembers);
+        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+
+        return resultFuture;
+    }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
         CompletableFuture<Message> resultFuture = new CompletableFuture<>();
@@ -285,7 +333,10 @@ public class ApiService {
 
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             server.removeRoleFromMember(member, role).queue(
-                    success -> future.complete(true), // Операция успешно завершена
+                    success -> {
+                        future.complete(true);
+                        System.out.println("Роль " + role.getName() + " успешно удалена у участника: " + member.getEffectiveName());
+                    }, // Операция успешно завершена
                     failure -> {
                         System.err.println("Не удалось удалить роль " + role.getName() + " у участника: " + member.getEffectiveName() + ". Ошибка: " + failure.getMessage());
                         future.complete(false); // Операция завершилась с ошибкой
@@ -295,7 +346,7 @@ public class ApiService {
         }
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, все ли будущие задачи были успешны
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, были ли все операции успешны
     }
 
 

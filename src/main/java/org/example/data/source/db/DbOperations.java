@@ -48,7 +48,7 @@ public class DbOperations {
                         statement.executeUpdate();
                         return true;
                     } catch (SQLException e) {
-                        System.err.println(e.getMessage());
+                        System.err.println("Ошибка при добавлении дебатера: " + e.getMessage());
                         throw new RuntimeException(e);
                     }
                 });
@@ -87,7 +87,7 @@ public class DbOperations {
                         statement.executeBatch();
                         return true;
                     } catch (SQLException e) {
-                        System.err.println(e.getMessage());
+                        System.err.println("Ошибка при добавлении дебатеров: " + e.getMessage());
                         throw new RuntimeException(e);
                     }
                 });
@@ -122,7 +122,7 @@ public class DbOperations {
                             }
                         }
                     } catch (SQLException e) {
-                        System.err.println(e.getMessage());
+                        System.err.println("Ошибка при получении темы: " + e.getMessage());
                         throw new CompletionException(e);
                     }
                 });
@@ -132,6 +132,7 @@ public class DbOperations {
             return null;
         });
     }
+
 
     public CompletableFuture<List<ThemeModel>> getThemes(List<Integer> themeIds) {
         if (themeIds == null || themeIds.isEmpty()) {
@@ -207,6 +208,36 @@ public class DbOperations {
             return null; // Лучше возвращать Optional.empty() для избежания null, если это возможно
         });
     }
+
+    public CompletableFuture<Boolean> addTheme(ThemeModel theme) {
+        return db.executeWithConnection().thenCompose(connectionResult -> {
+            if (!connectionResult) {
+                CompletableFuture<Boolean> failedFuture = new CompletableFuture<>();
+                failedFuture.complete(false);
+                return failedFuture;
+            } else {
+                return CompletableFuture.supplyAsync(() -> {
+                    String sql = "INSERT INTO " + DbConstants.TABLE_THEMES + " (" +
+                            DbConstants.COLUMN_THEMES_ID + ", " +
+                            DbConstants.COLUMN_THEMES_NAME + ", " +
+                            DbConstants.COLUMN_THEMES_USAGE_COUNT + ") VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE " +
+                            DbConstants.COLUMN_THEMES_NAME + " = VALUES(" + DbConstants.COLUMN_THEMES_NAME + "), " +
+                            DbConstants.COLUMN_THEMES_USAGE_COUNT + " = VALUES(" + DbConstants.COLUMN_THEMES_USAGE_COUNT + ");";
+                    try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
+                        statement.setInt(1, theme.getId());
+                        statement.setString(2, theme.getName());
+                        statement.setInt(3, theme.getUsageCount());
+                        statement.executeUpdate();
+                        return true;
+                    } catch (SQLException e) {
+                        System.err.println("Ошибка при добавлении темы: " + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+        });
+    }
+
 
     public CompletableFuture<List<DebaterModel>> getDebatersByMemberIds(List<Long> memberIds) {
         if (memberIds == null || memberIds.isEmpty()) {
@@ -304,21 +335,24 @@ public class DbOperations {
                     String sql = "INSERT INTO " + DbConstants.TABLE_APF_DEBATES + " (" +
                             DbConstants.COLUMN_DEBATES_THEME_ID + ", " +
                             DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + ", " +
+                            DbConstants.COLUMN_DEBATES_JUDGES_IDS + ", " +
                             DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + ", " +
                             DbConstants.COLUMN_DEBATES_DATE_TIME + ", " +
-                            DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ") VALUES (?, ?, ?, ?, ?)" +
+                            DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ") VALUES (?, ?, ?, ?, ?, ?)" +
                             " ON DUPLICATE KEY UPDATE " +
                             DbConstants.COLUMN_DEBATES_THEME_ID + " = VALUES(" + DbConstants.COLUMN_DEBATES_THEME_ID + "), " +
                             DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + "), " +
+                            DbConstants.COLUMN_DEBATES_JUDGES_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATES_JUDGES_IDS + "), " +
                             DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " = VALUES(" + DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + "), " +
                             DbConstants.COLUMN_DEBATES_DATE_TIME + " = VALUES(" + DbConstants.COLUMN_DEBATES_DATE_TIME + "), " +
                             DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " = VALUES(" + DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + ");";
                     try (PreparedStatement statement = db.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                         statement.setInt(1, debate.getThemeId());
                         statement.setString(2, convertListIdToString(debate.getGovernmentMembersIds()));
-                        statement.setString(3, convertListIdToString(debate.getOppositionMembersIds()));
-                        statement.setTimestamp(4, Timestamp.valueOf(debate.getStartDateTime()));
-                        statement.setBoolean(5, debate.isGovernmentWinner());
+                        statement.setString(3, convertListIdToString(debate.getJudgesIds()));
+                        statement.setString(4, convertListIdToString(debate.getOppositionMembersIds())); // Исправлен номер параметра с 3 на 4
+                        statement.setTimestamp(5, Timestamp.valueOf(debate.getStartDateTime()));
+                        statement.setBoolean(6, debate.isGovernmentWinner()); // Исправлен номер параметра с 5 на 6
 
                         int affectedRows = statement.executeUpdate();
                         if (affectedRows == 0) {
@@ -341,9 +375,10 @@ public class DbOperations {
             }
         }).exceptionally(e -> {
             db.getLogger().error("Не удалось добавить дебат", e);
-            return null; // Лучше использовать Optional<DebateModel>
+            return null; // Лучше использовать Optional<DebateModel> для избежания возвращения null
         });
     }
+
 
     public CompletableFuture<DebateModel> getDebate(long debateId) {
         return db.executeWithConnection().thenCompose(connectionResult -> {
@@ -365,6 +400,7 @@ public class DbOperations {
                                         rs.getLong(DbConstants.COLUMN_DEBATES_ID),
                                         rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                        convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_JUDGES_IDS)),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
                                         rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
@@ -402,6 +438,7 @@ public class DbOperations {
                                         rs.getLong(DbConstants.COLUMN_DEBATES_ID),
                                         rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                        convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_JUDGES_IDS)),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
                                         rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
@@ -481,6 +518,7 @@ public class DbOperations {
                                         rs.getLong(DbConstants.COLUMN_DEBATES_ID),
                                         rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                        convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_JUDGES_IDS)),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
                                         rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
@@ -506,6 +544,7 @@ public class DbOperations {
                 return CompletableFuture.supplyAsync(() -> {
                     String sql = "SELECT * FROM " + DbConstants.TABLE_APF_DEBATES + " WHERE " +
                             DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " LIKE ? OR " +
+                            DbConstants.COLUMN_DEBATES_JUDGES_IDS + " LIKE ? OR " +
                             DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " LIKE ?;";
                     List<DebateModel> results = new ArrayList<>();
                     try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
@@ -517,6 +556,7 @@ public class DbOperations {
                                         rs.getLong(DbConstants.COLUMN_DEBATES_ID),
                                         rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                        convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
                                         rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)
@@ -550,6 +590,7 @@ public class DbOperations {
                             .collect(Collectors.joining(","));
                     String sql = "SELECT * FROM " + DbConstants.TABLE_APF_DEBATES + " WHERE " +
                             DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " IN (" + placeholders + ") OR " +
+                            DbConstants.COLUMN_DEBATES_JUDGES_IDS + " IN (" + placeholders + ") OR " +
                             DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " IN (" + placeholders + ");";
                     List<DebateModel> results = new ArrayList<>();
                     try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
@@ -566,6 +607,7 @@ public class DbOperations {
                                         rs.getLong(DbConstants.COLUMN_DEBATES_ID),
                                         rs.getInt(DbConstants.COLUMN_DEBATES_THEME_ID),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS)),
+                                        convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_JUDGES_IDS)),
                                         convertStringToListId(rs.getString(DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS)),
                                         rs.getTimestamp(DbConstants.COLUMN_DEBATES_DATE_TIME).toLocalDateTime(),
                                         rs.getBoolean(DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER)

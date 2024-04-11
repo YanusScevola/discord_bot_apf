@@ -30,14 +30,21 @@ public class HistoryController {
             EmbedBuilder embed = new EmbedBuilder();
 
             StringBuilder governmentDebatersString = new StringBuilder();
+            StringBuilder judgesString = new StringBuilder();
             StringBuilder oppositionDebatersString = new StringBuilder();
 
-            String iconForGovernment = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :trophy:\n" : ": ㅤ  ㅤ baby_bottle:\n";
+            String iconForGovernment = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :trophy:\n" : " ㅤ  ㅤ :baby_bottle:\n";
+            String iconForJudges = " ㅤ :scales:\n";
             String iconForOpposition = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :baby_bottle:\n" : " ㅤ  ㅤ :trophy:\n";
 
             var governmentDebaters = lastDebate.getGovernmentDebaters();
             for (Member member : governmentDebaters) {
                 governmentDebatersString.append("<@").append(member.getIdLong()).append(">\n");
+            }
+
+            var judges = lastDebate.getJudges();
+            for (Member member : judges) {
+                judgesString.append("<@").append(member.getIdLong()).append(">\n");
             }
 
             var oppositionDebaters = lastDebate.getOppositionDebaters();
@@ -48,7 +55,8 @@ public class HistoryController {
             embed.setColor(new Color(88, 100, 242));
             embed.setTitle("Тема: " + getShortString(lastDebate.getTheme().getName()) + "\n ㅤ ");
             embed.addField(iconForGovernment + "Правительство", governmentDebatersString.toString(), true);
-            embed.addField(iconForOpposition + "Оппозиция", oppositionDebatersString.toString(), true);
+            embed.addField(iconForJudges + "  Судьи", judgesString.toString(), true);
+            embed.addField(iconForOpposition + " Оппозиция", oppositionDebatersString.toString(), true);
 
             if (this.channel != null) {
                 this.channel.sendMessageEmbeds(embed.build()).queue();

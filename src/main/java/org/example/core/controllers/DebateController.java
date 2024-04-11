@@ -15,6 +15,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.AudioManager;
+import org.example.core.constants.VoiceChannelsID;
 import org.example.core.constants.enums.Stage;
 import org.example.core.models.Debate;
 import org.example.core.models.Debater;
@@ -28,24 +29,31 @@ import org.example.core.stagetimer.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {
-    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
-    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
+    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
+    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
 
-    private static final int DEBATERS_PREPARATION_TIME = 15; // 15
-    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7; // 7
-    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8; // 8
-    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8; // 8
-    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8; // 8
+    private static final int DEBATERS_PREPARATION_TIME = 15*60; // 15*60
+    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7*60; // 7*60
+    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8*60; // 8*60
+    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8*60; // 8*60
+    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8*60; // 8*60
     private static final int OPPONENT_ASK_TIME = 15; // 15
-    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4; // 4
-    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5; // 5
-    private static final int JUDGES_PREPARATION_TIME = 15; // 15
-    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 10; // 60
+    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4*60; // 4*60
+    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5*60; // 5*60
+    private static final int JUDGES_PREPARATION_TIME = 15*60; // 15*60
+    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 60; // 60
 
     private static final String END_SPEECH_BTN_ID = "end_speech";
     private static final String ASK_QUESTION_BTN_ID = "ask_question";
     private static final String VOTE_GOVERNMENT_BTN_ID = "vote_government";
     private static final String VOTE_OPPOSITION_BTN_ID = "vote_opposition";
+
+    private static final HashMap<Integer, Long> roleIdByWinCountMap = new HashMap<>(Map.of(
+            2, RolesID.DEBATER_APF_2
+//            4, RolesID.DEBATER_APF_3,
+//            6, RolesID.DEBATER_APF_4,
+//            8, RolesID.DEBATER_APF_5
+    ));
 
     private final Button askQuestionButton;
     private final Button endSpeechButton;
@@ -60,6 +68,7 @@ public class DebateController {
     private VoiceChannel tribuneVoiceChannel;
     private VoiceChannel governmentVoiceChannel;
     private VoiceChannel oppositionVoiceChannel;
+    private VoiceChannel waitingVoiceChannel;
 
     private Member bot;
     private Member headGovernment;
@@ -98,6 +107,7 @@ public class DebateController {
         endSpeechButton = Button.primary(END_SPEECH_BTN_ID, StringRes.BUTTON_END_SPEECH);
         voteGovernmentButton = Button.primary(VOTE_GOVERNMENT_BTN_ID, StringRes.BUTTON_VOTE_GOVERNMENT);
         voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, StringRes.BUTTON_VOTE_OPPOSITION);
+//        waitingVoiceChannel = (VoiceChannel) useCase.getVoiceChannel(VoiceChannelsID.WAITING_ROOM);
     }
 
     public void onJoinToTribuneVoiceChannel(Guild guild, AudioChannel channelJoined, Member member) {
@@ -291,7 +301,7 @@ public class DebateController {
     private void startDebate(Guild guild) {
         isDebateStarted = true;
         isDebateFinished = false;
-        startStage(guild, Stage.JUDGES_PREPARATION);
+        startStage(guild, Stage.START_DEBATE);
     }
 
     private void startStage(Guild guild, @NotNull Stage stage) {
@@ -318,6 +328,7 @@ public class DebateController {
 
     private void startDebatersPreparationStage(Guild guild) {
         currentStage = Stage.DEBATERS_PREPARATION;
+        currentStageTimer = new StageTimer(tribuneVoiceChannel);
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = StringRes.TITLE_DEBATER_PREPARATION;
         List<Button> buttons = List.of();
@@ -565,7 +576,7 @@ public class DebateController {
                         AudioManager audioManager = guild.getAudioManager();
                         if (audioManager.isConnected()) {
                             audioManager.closeAudioConnection();
-                            endDebate();
+                            endDebateWithOutWinner();
                         } else {
                             System.out.println("Бот уже не находится в голосовом канале.");
                         }
@@ -678,7 +689,7 @@ public class DebateController {
                 winner = Winner.OPPOSITION;
                 winners = oppositionDebaters.stream().toList();
             } else {
-                endDebate();
+                endDebateWithOutWinner();
             }
 
             System.out.println("WINNER " + winner);
@@ -717,8 +728,35 @@ public class DebateController {
     private void endDebate() {
         try {
             Map<Member, Long> memberToRoleMap = new HashMap<>();
-            judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
+            List<Member> allDebatersEndJudges = new ArrayList<>();
+            allDebatersEndJudges.addAll(allDebaters);
+            allDebatersEndJudges.addAll(judges);
 
+            judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
+            if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
+            if (headOpposition != null) memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
+            if (memberGovernment != null) memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
+            if (memberOpposition != null) memberToRoleMap.put(memberOpposition, RolesID.MEMBER_OPPOSITION);
+
+            useCase.enabledMicrophone(tribuneVoiceChannel.getMembers()).thenAccept(success -> {
+                System.out.println("ENABLE MICROPHONE");
+                useCase.removeRoleFromUsers(memberToRoleMap);
+                useCase.deleteVoiceChannels(allVoiceChannels.stream().toList());
+                insertDebaterEndDebateToDb(allDebatersEndJudges.stream().toList(), () -> {
+                    System.out.println("END DEBATE");
+                    subscribeController.endDebate();
+                });
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void endDebateWithOutWinner() {
+        try {
+            Map<Member, Long> memberToRoleMap = new HashMap<>();
+
+            judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
             if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
             if (headOpposition != null) memberToRoleMap.put(headOpposition, RolesID.HEAD_OPPOSITION);
             if (memberGovernment != null) memberToRoleMap.put(memberGovernment, RolesID.MEMBER_GOVERNMENT);
@@ -728,13 +766,13 @@ public class DebateController {
                 System.out.println("ENABLE MICROPHONE");
                 useCase.removeRoleFromUsers(memberToRoleMap).thenAccept(success1 -> {
                     System.out.println("REMOVE ROLES");
-                    useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
-                        System.out.println("DELETE VOICE CHANNELS");
-                        insertDebaterEndDebateToDb(allDebaters.stream().toList(), () -> {
-                            System.out.println("END DEBATE");
-                            subscribeController.endDebate();
+//                    var allMembersFromVoiceChannels = tribuneVoiceChannel.getMembers();
+//                    moveMembers(allMembersFromVoiceChannels, w, () -> {
+                        useCase.deleteVoiceChannels(allVoiceChannels.stream().toList()).thenAccept(success2 -> {
+                            System.out.println("DELETE VOICE CHANNELS");
+                            subscribeController.endDebateWithOutWinner();
                         });
-                    });
+//                    });
                 });
             });
         } catch (Exception e) {
@@ -745,50 +783,67 @@ public class DebateController {
     private void insertDebaterEndDebateToDb(List<Member> members, Runnable callback) {
         Debate finishedDebate = getFinishedDebate();
         List<Long> memberIds = members.stream().map(Member::getIdLong).toList();
-        Theme currentTheme = new Theme();
-        currentTheme.setId(1);
-        finishedDebate.setTheme(currentTheme);
-        useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
-            finishedDebate.setId(resultDebate.getId());
-            useCase.getDebatersByMemberId(memberIds).thenAccept(allDebatersByMember -> {
-                List<Long> allDebatersIds = allDebatersByMember.stream().map(Debater::getMemberId).toList();
-                List<Debater> finishedDebaters = new ArrayList<>();
+        //TODO: удалить етот вызов темы
+//        useCase.getRandomTheme().thenAccept(theme -> {
+//            currentTheme = theme;
+            currentTheme.setUsageCount(currentTheme.getUsageCount() + 1);
+            finishedDebate.setTheme(currentTheme);
+            useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
+                finishedDebate.setId(resultDebate.getId());
+                useCase.getDebatersByMemberId(memberIds).thenAccept(allDebatersByMember -> {
+                    List<Long> allDebatersIds = allDebatersByMember.stream().map(Debater::getMemberId).toList();
+                    List<Debater> finishedDebaters = new ArrayList<>();
 
-                for (Member member : members) {
-                    if (allDebatersIds.contains(member.getIdLong())) {
-                        Debater debater = allDebatersByMember.stream().filter(d -> d.getMemberId() == member.getIdLong()).findFirst().orElse(null);
-                        if (winners.contains(member)) {
-                            debater.setWinnCount(debater.getWinnCount() + 1);
+                    for (Member member : members) {
+                        if (judges.contains(member)) continue;
+                        if (allDebatersIds.contains(member.getIdLong())) {
+                            Debater debater = allDebatersByMember.stream().filter(d -> d.getMemberId() == member.getIdLong()).findFirst().orElse(null);
+                            if (winners.contains(member)) {
+                                debater.setWinnCount(debater.getWinnCount() + 1);
+
+                                if (roleIdByWinCountMap.containsKey(debater.getWinnCount())) {
+                                    var allRolesForDebater = roleIdByWinCountMap.values().stream().toList();
+                                    var currentMemberRoles = member.getRoles();
+                                    var newDebaterRole = roleIdByWinCountMap.get(debater.getWinnCount());
+                                    allRolesForDebater.forEach(debaterRoleId -> {
+                                        if (currentMemberRoles.stream().anyMatch(role -> role.getIdLong() == debaterRoleId)) {
+                                            useCase.removeRoleFromUsers(Map.of(member, debaterRoleId)).thenAccept(success -> {
+                                                if (success) useCase.addRoleToMembers(Map.of(member, newDebaterRole));
+                                            });
+                                        }
+                                    });
+                                }
+
+                            } else {
+                                debater.setLossesCount(debater.getLossesCount() + 1);
+                            }
+                            debater.setNickname(member.getUser().getName());
+                            debater.setServerNickname(member.getEffectiveName());
+                            debater.getDebates().add(finishedDebate);
+                            finishedDebaters.add(debater);
                         } else {
-                            debater.setLossesCount(debater.getLossesCount() + 1);
+                            Debater debater = new Debater();
+                            debater.setMemberId(member.getIdLong());
+                            debater.setNickname(member.getUser().getName());
+                            debater.setServerNickname(member.getEffectiveName());
+                            if (winners.contains(member)) {
+                                debater.setWinnCount(1);
+                            } else {
+                                debater.setLossesCount(1);
+                            }
+                            debater.setDebates(List.of(finishedDebate));
+                            finishedDebaters.add(debater);
                         }
-                        debater.setNickname(member.getUser().getName());
-                        debater.setServerNickname(member.getEffectiveName());
-                        debater.getDebates().add(finishedDebate);
-                        finishedDebaters.add(debater);
+                    }
 
-                    } else {
-                        Debater debater = new Debater();
-                        debater.setMemberId(member.getIdLong());
-                        debater.setNickname(member.getUser().getName());
-                        debater.setServerNickname(member.getEffectiveName());
-                        if (winners.contains(member)) {
-                            debater.setWinnCount(1);
+                    useCase.addDebaters(finishedDebaters).thenAccept(success4 -> {
+                        if (success4) {
+                            if (callback != null) callback.run();
                         } else {
-                            debater.setLossesCount(1);
+                            System.out.println("DEBATERS NOT ADDED");
                         }
-                        debater.setDebates(List.of(finishedDebate));
-                        finishedDebaters.add(debater);
-                    }
-                }
-
-                useCase.addDebaters(finishedDebaters).thenAccept(success4 -> {
-                    if (success4) {
-                        if (callback != null) callback.run();
-                    } else {
-                        System.out.println("DEBATERS NOT ADDED");
-                    }
-                });
+                    });
+//                });
             });
         });
     }
@@ -800,12 +855,15 @@ public class DebateController {
         if (headGovernment != null) governmentDebaters.add(headGovernment);
         if (memberGovernment != null) governmentDebaters.add(memberGovernment);
 
+        List<Member> judgeList = new ArrayList<>(this.judges);
+
         List<Member> oppositionDebaters = new ArrayList<>();
         if (headOpposition != null) oppositionDebaters.add(headOpposition);
         if (memberOpposition != null) oppositionDebaters.add(memberOpposition);
 
         debate.setGovernmentDebaters(governmentDebaters);
         debate.setOppositionDebaters(oppositionDebaters);
+        debate.setJudges(judgeList);
         debate.setEndDateTime(LocalDateTime.now());
         debate.setIsGovernmentWinner(winner == Winner.GOVERNMENT);
         return debate;

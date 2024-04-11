@@ -32,6 +32,7 @@ public class DbConstants {
     public static final String COLUMN_DEBATES_ID = "id";
     public static final String COLUMN_DEBATES_THEME_ID = "theme";
     public static final String COLUMN_DEBATES_GOVERNMENT_USERS_IDS = "government_users_ids";
+    public static final String COLUMN_DEBATES_JUDGES_IDS = "judges_ids";
     public static final String COLUMN_DEBATES_OPPOSITION_USERS_IDS = "opposition_users_ids";
     public static final String COLUMN_DEBATES_DATE_TIME = "date_time";
     public static final String COLUMN_DEBATES_IS_GOVERNMENT_WINNER = "is_government_winner";

@@ -7,6 +7,7 @@ public class DebateModel {
     private long id;
     private int themeId;
     private List<Long> governmentMembersIds;
+    private List<Long> judgesIds;
     private List<Long> oppositionMembersIds;
     private LocalDateTime startDateTime;
     private boolean isGovernmentWinner;
@@ -14,10 +15,11 @@ public class DebateModel {
     public DebateModel() {
     }
 
-    public DebateModel(long id, int themeId, List<Long> governmentMembersIds, List<Long> oppositionMembersIds, LocalDateTime startDateTime, boolean isGovernmentWinner) {
+    public DebateModel(long id, int themeId, List<Long> governmentMembersIds, List<Long> judgesIds, List<Long> oppositionMembersIds, LocalDateTime startDateTime, boolean isGovernmentWinner) {
         this.id = id;
         this.themeId = themeId;
         this.governmentMembersIds = governmentMembersIds;
+        this.judgesIds = judgesIds;
         this.oppositionMembersIds = oppositionMembersIds;
         this.startDateTime = startDateTime;
         this.isGovernmentWinner = isGovernmentWinner;
@@ -71,12 +73,21 @@ public class DebateModel {
         isGovernmentWinner = governmentWinner;
     }
 
+    public List<Long> getJudgesIds() {
+        return judgesIds;
+    }
+
+    public void setJudgesIds(List<Long> judgesIds) {
+        this.judgesIds = judgesIds;
+    }
+
     @Override
     public String toString() {
         return "DebateAPF{" +
                 "id='" + id + '\'' +
                 ", themeId=" + themeId +
                 ", governmentUsersIds=" + governmentMembersIds +
+                ", judgesIds=" + judgesIds +
                 ", oppositionUsersIds=" + oppositionMembersIds +
                 ", dateTime=" + startDateTime +
                 ", isGovernmentWinner=" + isGovernmentWinner +

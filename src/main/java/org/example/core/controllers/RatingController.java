@@ -1,7 +1,8 @@
 package org.example.core.controllers;
 
 import java.awt.*;
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -17,6 +18,13 @@ public class RatingController {
     private static RatingController instance;
     private TextChannel channel;
     private UseCase useCase;
+    private List<Long> debatersRuleIds = new ArrayList<>(List.of(
+            RolesID.DEBATER_APF_1,
+            RolesID.DEBATER_APF_2
+//            RolesID.DEBATER_APF_3,
+//            RolesID.DEBATER_APF_4,
+//            RolesID.DEBATER_APF_5
+    ));
 
     private RatingController(UseCase useCase) {
         this.useCase = useCase;
@@ -33,7 +41,7 @@ public class RatingController {
     public void displayDebatersList() {
         try {
             this.channel = useCase.getTextChannel(TextChannelsID.RATING);
-            useCase.getMembersByRole(RolesID.DEBATER_APF).thenAccept(members -> {
+            useCase.getMembersByRoles(debatersRuleIds).thenAccept(members -> {
                 var membersIds = members.stream().map(ISnowflake::getIdLong).collect(Collectors.toList());
                 useCase.getDebatersByMemberId(membersIds).thenAccept(debaters -> {
                     EmbedBuilder eb = new EmbedBuilder();
@@ -41,19 +49,24 @@ public class RatingController {
                     eb.setColor(new Color(88, 100, 242));
                     eb.setDescription("Список дебатеров");
 
-                    debaters.sort(Comparator.comparing(Debater::getWinnCount).reversed());
-                    var limitedDebaters = debaters.stream().limit(20).toList();
+                    debaters.sort((debater1, debater2) -> {
+                        double debater1WinRate = (double) debater1.getWinnCount() / (debater1.getWinnCount() + debater1.getLossesCount());
+                        double debater2WinRate = (double) debater2.getWinnCount() / (debater2.getWinnCount() + debater2.getLossesCount());
 
+                        int rateCompare = Double.compare(debater2WinRate, debater1WinRate);
+                        if (rateCompare != 0) return rateCompare;
+                        return Integer.compare(debater2.getWinnCount(), debater1.getWinnCount());
+                    });
+
+                    var limitedDebaters = debaters.stream().limit(20).toList();
                     int debaterRatingNumber = 1;
                     StringBuilder listDebaters = new StringBuilder();
                     StringBuilder listWins = new StringBuilder();
                     StringBuilder listLosses = new StringBuilder();
 
-//                    for (int i = 0; i < 5; i++) {
-//                    Debater debater = limitedDebaters.get(0);
                     for (Debater debater : limitedDebaters) {
                         if (debaterRatingNumber == 1) {
-                            listDebaters.append("1" + " : ").append("<@").append(debater.getMemberId()).append(">\n");
+                            listDebaters.append("1" + ". ").append("<@").append(debater.getMemberId()).append(">\n");
                         } else {
                             listDebaters.append(debaterRatingNumber).append(". ").append("<@").append(debater.getMemberId()).append(">\n");
                         }

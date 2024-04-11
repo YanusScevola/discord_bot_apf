@@ -15,6 +15,7 @@ public class StringRes {
     public static final String CHANNEL_JUDGE = "Судейская";
     public static final String CHANNEL_GOVERNMENT = "Правительство";
     public static final String CHANNEL_OPPOSITION = "Оппозиция";
+    public static final String CHANNEL_WAITING_ROOM = "Зал ожидания";
 
     public static final String TITLE_DEBATER_LIST = "Дебатеры:";
     public static final String TITLE_JUDGES_LIST = "Судьи:";

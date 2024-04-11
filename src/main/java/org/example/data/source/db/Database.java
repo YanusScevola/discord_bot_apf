@@ -84,6 +84,7 @@ public class Database {
                 "(" + DbConstants.COLUMN_DEBATES_ID + " BIGINT NOT NULL AUTO_INCREMENT, " +
                         DbConstants.COLUMN_DEBATES_THEME_ID + " INT, " +
                         DbConstants.COLUMN_DEBATES_GOVERNMENT_USERS_IDS + " TEXT, " +
+                        DbConstants.COLUMN_DEBATES_JUDGES_IDS + " TEXT, " +
                         DbConstants.COLUMN_DEBATES_OPPOSITION_USERS_IDS + " TEXT, " +
                         DbConstants.COLUMN_DEBATES_DATE_TIME + " TIMESTAMP, " +
                         DbConstants.COLUMN_DEBATES_IS_GOVERNMENT_WINNER + " BOOLEAN, " +
