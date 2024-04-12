@@ -13,6 +13,7 @@ import org.example.core.constants.TextChannelsID;
 import org.example.core.constants.RolesID;
 import org.example.core.models.Debater;
 import org.example.domain.UseCase;
+import org.example.resources.Colors;
 
 public class RatingController {
     private static RatingController instance;
@@ -20,10 +21,10 @@ public class RatingController {
     private UseCase useCase;
     private List<Long> debatersRuleIds = new ArrayList<>(List.of(
             RolesID.DEBATER_APF_1,
-            RolesID.DEBATER_APF_2
-//            RolesID.DEBATER_APF_3,
-//            RolesID.DEBATER_APF_4,
-//            RolesID.DEBATER_APF_5
+            RolesID.DEBATER_APF_2,
+            RolesID.DEBATER_APF_3,
+            RolesID.DEBATER_APF_4,
+            RolesID.DEBATER_APF_5
     ));
 
     private RatingController(UseCase useCase) {
@@ -46,8 +47,7 @@ public class RatingController {
                 useCase.getDebatersByMemberId(membersIds).thenAccept(debaters -> {
                     EmbedBuilder eb = new EmbedBuilder();
                     eb.setTitle("Рейтинг дебатеров АПФ", null);
-                    eb.setColor(new Color(88, 100, 242));
-                    eb.setDescription("Список дебатеров");
+                    eb.setColor(Colors.BLUE);
 
                     debaters.sort((debater1, debater2) -> {
                         double debater1WinRate = (double) debater1.getWinnCount() / (debater1.getWinnCount() + debater1.getLossesCount());

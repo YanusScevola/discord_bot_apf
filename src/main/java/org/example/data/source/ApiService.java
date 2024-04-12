@@ -168,24 +168,24 @@ public class ApiService {
             return resultFuture;
         }
 
-        if (roleIds.isEmpty()) {
-            resultFuture.complete(new ArrayList<>());
+        if (roleIds == null || roleIds.isEmpty()) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Список идентификаторов ролей пуст"));
             return resultFuture;
         }
 
         List<Role> roles = roleIds.stream()
-                .map(server::getRoleById)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .map(roleId -> server.getRoleById(roleId))
+                .filter(Objects::nonNull).toList();
 
         if (roles.isEmpty()) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Нет таких ролей"));
+            resultFuture.completeExceptionally(new IllegalArgumentException("Ни одна из заданных ролей не найдена"));
             return resultFuture;
         }
 
+        // Загружаем всех участников сервера и фильтруем тех, у кого есть хотя бы одна из заданных ролей
         server.loadMembers().onSuccess(members -> {
             List<Member> filteredMembers = members.stream()
-                    .filter(member -> member.getRoles().containsAll(roles))
+                    .filter(member -> member.getRoles().stream().anyMatch(roles::contains))
                     .collect(Collectors.toList());
             resultFuture.complete(filteredMembers);
         }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));

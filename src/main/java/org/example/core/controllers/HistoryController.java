@@ -34,7 +34,7 @@ public class HistoryController {
             StringBuilder oppositionDebatersString = new StringBuilder();
 
             String iconForGovernment = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :trophy:\n" : " ㅤ  ㅤ :baby_bottle:\n";
-            String iconForJudges = " ㅤ :scales:\n";
+            String iconForJudges = " ㅤ  :scales:\n";
             String iconForOpposition = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :baby_bottle:\n" : " ㅤ  ㅤ :trophy:\n";
 
             var governmentDebaters = lastDebate.getGovernmentDebaters();
@@ -53,7 +53,7 @@ public class HistoryController {
             }
 
             embed.setColor(new Color(88, 100, 242));
-            embed.setTitle("Тема: " + getShortString(lastDebate.getTheme().getName()) + "\n ㅤ ");
+            embed.setTitle(getShortString(lastDebate.getTheme().getName()) + "\n ㅤ ");
             embed.addField(iconForGovernment + "Правительство", governmentDebatersString.toString(), true);
             embed.addField(iconForJudges + "  Судьи", judgesString.toString(), true);
             embed.addField(iconForOpposition + " Оппозиция", oppositionDebatersString.toString(), true);
@@ -77,7 +77,7 @@ public class HistoryController {
                 wordCount++;
                 result.append(words[i]);
 
-                if (wordCount % 3 == 0 && i < words.length - 1) {
+                if (wordCount % 4 == 0 && i < words.length - 1) {
                     result.append("\n");
                 } else if (i < words.length - 1) {
                     result.append(" ");

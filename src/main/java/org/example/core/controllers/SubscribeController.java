@@ -20,6 +20,7 @@ import net.dv8tion.jda.api.managers.AudioManager;
 
 import org.example.core.models.Question;
 import org.example.core.models.TestDataByUser;
+import org.example.resources.Colors;
 import org.example.resources.StringRes;
 import org.example.core.constants.CategoriesID;
 import org.example.core.constants.RolesID;
@@ -29,11 +30,17 @@ import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {
-    private static final int DEBATERS_LIMIT = 4; //4
+    private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
-    private static final int START_DEBATE_TIMER = 10; //60
+    private static final int START_DEBATE_TIMER = 5; //60
     private static final int TEST_TIMER = 20; //20
     private static final int TEST_ATTEMPTS = 1;
+
+//    private static final int DEBATERS_LIMIT = 4; //4
+//    private static final int JUDGES_LIMIT = 1; //1
+//    private static final int START_DEBATE_TIMER = 10; //60
+//    private static final int TEST_TIMER = 20; //20
+//    private static final int TEST_ATTEMPTS = 1;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -74,10 +81,10 @@ public class SubscribeController {
 
     private List<Long> debatersRuleIds = new ArrayList<>(List.of(
             RolesID.DEBATER_APF_1,
-            RolesID.DEBATER_APF_2
-//            RolesID.DEBATER_APF_3,
-//            RolesID.DEBATER_APF_4,
-//            RolesID.DEBATER_APF_5
+            RolesID.DEBATER_APF_2,
+            RolesID.DEBATER_APF_3,
+            RolesID.DEBATER_APF_4,
+            RolesID.DEBATER_APF_5
     ));
 
 
@@ -99,20 +106,6 @@ public class SubscribeController {
         this.channel = useCase.getTextChannel(TextChannelsID.SUBSCRIBE);
         this.ratingController = RatingController.getInstance(useCase);
         this.historyController = HistoryController.getInstance(useCase);
-
-//        debaterRoles = List.of(
-//                RolesID.HEAD_GOVERNMENT,
-//                RolesID.HEAD_OPPOSITION,
-//                RolesID.MEMBER_GOVERNMENT,
-//                RolesID.MEMBER_OPPOSITION
-//        );
-//
-//        voiceChannelsNames = List.of(
-//                StringRes.CHANNEL_JUDGE,
-//                StringRes.CHANNEL_TRIBUNE,
-//                StringRes.CHANNEL_GOVERNMENT,
-//                StringRes.CHANNEL_OPPOSITION
-//        );
 
         showSubscribeMessage();
     }
@@ -145,7 +138,7 @@ public class SubscribeController {
 
     private void showSubscribeMessage() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.setColor(new Color(88, 100, 242));
+        embedBuilder.setColor(Colors.BLUE);
         embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
         embedBuilder.addField(StringRes.TITLE_DEBATER_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
         embedBuilder.addField(StringRes.TITLE_JUDGES_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
@@ -424,7 +417,9 @@ public class SubscribeController {
             if (!hasDebaterRole) membersToRolesMap.put(member, debaterRoles.get(i));
         }
 
-        for (int i = 0; i < JUDGES_LIMIT; i++) judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
+        for (int i = 0; i < JUDGES_LIMIT; i++){
+            judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
+        }
 
         useCase.addRoleToMembers(membersToRolesMap).thenAccept(success -> {
             useCase.addRoleToMembers(judgesToRolesMap).thenAccept(success1 -> {
@@ -453,7 +448,7 @@ public class SubscribeController {
             if (!history.isEmpty()) {
                 Message message = history.getRetrievedHistory().get(0);
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.setColor(new Color(88, 100, 242));
+                embedBuilder.setColor(Colors.BLUE);
                 embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
 
                 List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).toList();
@@ -483,7 +478,7 @@ public class SubscribeController {
 
     public void showNeedToStartTestEmbed(InteractionHook message, Member member) {
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(new Color(88, 100, 242));
+        embed.setColor(Colors.BLUE);
         embed.setDescription("**:warning: У вас нету роли <@&" + RolesID.DEBATER_APF_1 + ">. Чтобы получить данную роль необходимо пройти тест на знание правил дебатов АПФ.**\n\n" +
                 "- Чтобы подготовиться к тесту пройдите в канал <#" + TextChannelsID.RULES + ">.\n" +
                 "- В тесте будут " + MAX_QUESTIONS + " вопросов и 4 варианта ответа.\n" +
@@ -517,7 +512,7 @@ public class SubscribeController {
         long twentySecondsLater = currentTimeInSeconds + TEST_TIMER;
 
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(new Color(88, 100, 242));
+        embed.setColor(Colors.BLUE);
         embed.setFooter((questionNumber) + " из " + MAX_QUESTIONS);
 
         String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
@@ -575,7 +570,7 @@ public class SubscribeController {
         long twentySecondsLater = currentTimeInSeconds + TEST_TIMER;
 
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(new Color(88, 100, 242));
+        embed.setColor(Colors.BLUE);
         embed.setFooter((1) + " из " + MAX_QUESTIONS);
 
         String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
@@ -617,7 +612,7 @@ public class SubscribeController {
         Map<Member, Long> members = Map.of(Objects.requireNonNull(event.getMember()), RolesID.DEBATER_APF_1);
         useCase.addRoleToMembers(members).thenAccept(success -> {
             EmbedBuilder winEmbed = new EmbedBuilder();
-            winEmbed.setColor(new Color(36, 128, 70));
+            winEmbed.setColor(Colors.GREEN);
             winEmbed.setTitle("Тест пройден  :partying_face:");
             winEmbed.setDescription("Вы получили роль дебатер.");
 
@@ -672,7 +667,7 @@ public class SubscribeController {
 
     public EmbedBuilder getTestFailedEmbed(TestDataByUser currentTestData) {
         EmbedBuilder lossEmbed = new EmbedBuilder();
-        lossEmbed.setColor(new Color(158, 26, 26));
+        lossEmbed.setColor(Colors.RED);
         lossEmbed.setTitle("Тест провален :cry:");
         lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + MAX_QUESTIONS + " вопросов.\n" +
                 "- Перепройди тест через 10 минут.");
