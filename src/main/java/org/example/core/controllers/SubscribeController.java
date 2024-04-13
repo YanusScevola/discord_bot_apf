@@ -30,17 +30,19 @@ import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {
-    private static final int DEBATERS_LIMIT = 1; //4
-    private static final int JUDGES_LIMIT = 1; //1
-    private static final int START_DEBATE_TIMER = 5; //60
-    private static final int TEST_TIMER = 20; //20
-    private static final int TEST_ATTEMPTS = 1;
-
-//    private static final int DEBATERS_LIMIT = 4; //4
+//    private static final int DEBATERS_LIMIT = 1; //4
 //    private static final int JUDGES_LIMIT = 1; //1
-//    private static final int START_DEBATE_TIMER = 10; //60
-//    private static final int TEST_TIMER = 20; //20
+//
+//    private static final int START_DEBATE_TIMER = 5;
+//    private static final int TEST_TIMER = 20;
 //    private static final int TEST_ATTEMPTS = 1;
+
+    private static final int DEBATERS_LIMIT = 4; //4
+    private static final int JUDGES_LIMIT = 1; //1
+
+    private static final int START_DEBATE_TIMER = 30;
+    private static final int TEST_TIMER = 20;
+    private static final int TEST_ATTEMPTS = 1;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";

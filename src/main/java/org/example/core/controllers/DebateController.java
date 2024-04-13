@@ -32,35 +32,37 @@ import org.example.core.stagetimer.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {
-    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
-    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
+//    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
+//    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
+//
+//    private static final int DEBATERS_PREPARATION_TIME = 15;
+//    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 65;
+//    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 65;
+//    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 10;
+//    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 10;
+//    private static final int OPPONENT_ASK_TIME = 15;
+//    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 10;
+//    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 10;
+//    private static final int JUDGES_PREPARATION_TIME = 20;
+//    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 15;
+//    private static final int BEEP_TIME = 60;
+//    private static final boolean isTest = true;
+//
+    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
+    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
 
-    private static final int DEBATERS_PREPARATION_TIME = 15;
-    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7;
-    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8;
-    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 15;
-    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 15;
-    private static final int OPPONENT_ASK_TIME = 15;
-    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4;
-    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5;
-    private static final int JUDGES_PREPARATION_TIME = 20;
-    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 15;
-    private static final boolean isTest = true;
-//
-//    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
-//    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
-//
-//    private static final int DEBATERS_PREPARATION_TIME = 15 * 60; // 15*60
-//    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7 * 60; // 7*60
-//    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8 * 60; // 8*60
-//    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8 * 60; // 8*60
-//    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8 * 60; // 8*60
-//    private static final int OPPONENT_ASK_TIME = 15; // 15
-//    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4 * 60; // 4*60
-//    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5 * 60; // 5*60
-//    private static final int JUDGES_PREPARATION_TIME = 20 * 60; // 15*60
-//    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 60; // 60
-//    private static final boolean isTest = false;
+    private static final int DEBATERS_PREPARATION_TIME = 15 * 60;
+    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7 * 60;
+    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8 * 60;
+    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8 * 60;
+    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8 * 60;
+    private static final int OPPONENT_ASK_TIME = 15; // 15
+    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4 * 60;
+    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5 * 60;
+    private static final int JUDGES_PREPARATION_TIME = 20 * 60;
+    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 60;
+    private static final int BEEP_TIME = 60;
+    private static final boolean isTest = false;
 
     private static final String END_SPEECH_BTN_ID = "end_speech";
     private static final String ASK_QUESTION_BTN_ID = "ask_question";
@@ -339,7 +341,7 @@ public class DebateController {
     private void startDebate(Guild guild) {
         isDebateStarted = true;
         isDebateFinished = false;
-        startStage(guild, Stage.JUDGES_PREPARATION);
+        startStage(guild, Stage.START_DEBATE);
     }
 
     private void sendDebateTheme() {
@@ -382,7 +384,7 @@ public class DebateController {
             sendDebateTheme();
             moveMembers(oppositionDebaters.stream().toList(), oppositionVoiceChannel, () -> {
                 moveMembers(governmentDebaters.stream().toList(), governmentVoiceChannel, () -> {
-                    startTimer(currentStageTimer, title, DEBATERS_PREPARATION_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, DEBATERS_PREPARATION_TIME, buttons, guild, () -> {
                         disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
                             moveMembers(allDebaters.stream().toList(), tribuneVoiceChannel, () -> {
                                 stopCurrentAudio(guild);
@@ -390,10 +392,10 @@ public class DebateController {
                             });
                         });
                     });
-                    playAudio(guild, "Разговоры пока дебатеры готовятся.mp3", () -> enableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
+                    playAudio(guild, "Разговоры пока дебатеры готовятся.mp3", () ->  {
                         enableMicrophone(tribuneVoiceChannel.getMembers(), null);
                         playAudio(guild, "Тишина.mp3", null);
-                    }));
+                    });
                 });
             });
         });
@@ -410,7 +412,7 @@ public class DebateController {
             playAudio(guild, "Вступ глава правительства.mp3", () -> {
                 enableMicrophone(List.of(headGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, guild,() -> {
                         disableMicrophone(List.of(headGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH);
@@ -437,7 +439,7 @@ public class DebateController {
             playAudio(guild, "Вступ глава оппозиции.mp3", () -> {
                 enableMicrophone(List.of(headOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, guild, () -> {
                         disableMicrophone(List.of(headOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
@@ -463,7 +465,7 @@ public class DebateController {
             playAudio(guild, "Член правительства.mp3", () -> {
                 enableMicrophone(List.of(memberGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, MEMBER_GOVERNMENT_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, MEMBER_GOVERNMENT_SPEECH_TIME, buttons,  guild,() -> {
                         disableMicrophone(List.of(memberGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH);
@@ -489,7 +491,7 @@ public class DebateController {
             playAudio(guild, "Член оппозиции.mp3", () -> {
                 enableMicrophone(List.of(memberOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, MEMBER_OPPOSITION_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, MEMBER_OPPOSITION_SPEECH_TIME, buttons,  guild,() -> {
                         disableMicrophone(List.of(memberOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH);
@@ -515,7 +517,7 @@ public class DebateController {
             playAudio(guild, "Закл глава оппозиции.mp3", () -> {
                 enableMicrophone(List.of(headOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons,  guild,() -> {
                         disableMicrophone(List.of(headOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
@@ -541,7 +543,7 @@ public class DebateController {
             playAudio(guild, "Закл глава правительства.mp3", () -> {
                 enableMicrophone(List.of(headGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, () -> {
+                    startTimer(currentStageTimer, title, HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons,  guild,() -> {
                         disableMicrophone(List.of(headGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.JUDGES_PREPARATION);
@@ -565,7 +567,7 @@ public class DebateController {
 //            playAudio(guild, "Разговоры пока судьи готовятся.mp3", () -> {
             moveMembers(judges.stream().toList(), judgesVoiceChannel, () -> {
                 sendVotingMessage();
-                startTimer(currentStageTimer, title, JUDGES_PREPARATION_TIME, new ArrayList<>(), () -> {
+                startTimer(currentStageTimer, title, JUDGES_PREPARATION_TIME, new ArrayList<>(),  guild,() -> {
 //                    if (winners == null || winners.isEmpty()) {
                         disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
                             stopCurrentAudio(guild);
@@ -843,8 +845,8 @@ public class DebateController {
     private void insertDebaterEndDebateToDb(List<Member> members, Runnable callback) {
         Debate finishedDebate = getFinishedDebate();
         List<Long> memberIds = members.stream().map(Member::getIdLong).toList();
-        useCase.getRandomTheme().thenAccept(theme -> {
-            currentTheme = theme;
+//        useCase.getRandomTheme().thenAccept(theme -> {
+//            currentTheme = theme;
             currentTheme.setUsageCount(currentTheme.getUsageCount() + 1);
             finishedDebate.setTheme(currentTheme);
             useCase.addDebate(finishedDebate).thenAccept(resultDebate -> {
@@ -902,7 +904,7 @@ public class DebateController {
                         }
                     });
                 });
-            });
+//            });
         });
     }
 
@@ -950,10 +952,21 @@ public class DebateController {
     }
 
 
-    private void startTimer(StageTimer timer, String title, long time, List<Button> buttons, Runnable timerCallback) {
+    private void startTimer(StageTimer timer, String title, long time, List<Button> buttons, Guild guild, Runnable timerCallback) {
         System.out.println("START " + title);
         timer.start(title, time, buttons, timerCallback);
+
+        if (time > BEEP_TIME) {
+            new java.util.Timer().schedule(new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    stopCurrentAudio(guild);
+                    playAudio(guild, "бип.mp3", null);
+                }
+            }, (time - BEEP_TIME) * 1000); // Запускаем таймер на время, уменьшенное на 60 секунд
+        }
     }
+
 
     private void skipTimer() {
         System.out.println("SKIP");
