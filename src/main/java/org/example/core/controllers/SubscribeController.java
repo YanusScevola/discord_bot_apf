@@ -4,6 +4,7 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
@@ -30,19 +31,19 @@ import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {
-//    private static final int DEBATERS_LIMIT = 1; //4
-//    private static final int JUDGES_LIMIT = 1; //1
-//
-//    private static final int START_DEBATE_TIMER = 5;
-//    private static final int TEST_TIMER = 20;
-//    private static final int TEST_ATTEMPTS = 1;
-
-    private static final int DEBATERS_LIMIT = 4; //4
+    private static final int DEBATERS_LIMIT = 1; //4
     private static final int JUDGES_LIMIT = 1; //1
 
-    private static final int START_DEBATE_TIMER = 30;
+    private static final int START_DEBATE_TIMER = 5;
     private static final int TEST_TIMER = 20;
     private static final int TEST_ATTEMPTS = 1;
+
+//    private static final int DEBATERS_LIMIT = 4; //4
+//    private static final int JUDGES_LIMIT = 1; //1
+//
+//    private static final int START_DEBATE_TIMER = 30;
+//    private static final int TEST_TIMER = 20;
+//    private static final int TEST_ATTEMPTS = 5; //Minutes
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -67,21 +68,21 @@ public class SubscribeController {
     private long timerForStartDebate = 0;
     private boolean isDebateStarted = false;
 
-    private final List<Long> debaterRoles = new ArrayList<>(List.of(
+    private final List<Long> debaterRoles = new ArrayList<>(Arrays.asList(
             RolesID.HEAD_GOVERNMENT,
             RolesID.HEAD_OPPOSITION,
             RolesID.MEMBER_GOVERNMENT,
             RolesID.MEMBER_OPPOSITION
     ));
 
-    private final List<String> voiceChannelsNames = new ArrayList<>(List.of(
+    private final List<String> voiceChannelsNames = new ArrayList<>(Arrays.asList(
             StringRes.CHANNEL_JUDGE,
             StringRes.CHANNEL_TRIBUNE,
             StringRes.CHANNEL_GOVERNMENT,
             StringRes.CHANNEL_OPPOSITION
     ));
 
-    private List<Long> debatersRuleIds = new ArrayList<>(List.of(
+    private List<Long> debatersRuleIds = new ArrayList<>(Arrays.asList(
             RolesID.DEBATER_APF_1,
             RolesID.DEBATER_APF_2,
             RolesID.DEBATER_APF_3,
@@ -96,12 +97,14 @@ public class SubscribeController {
     private final LinkedHashMap<Long, Long> lastTestAttemptByUser = new LinkedHashMap<>();
     private final Map<Long, InteractionHook> memberByNeedToStartTestHook = new ConcurrentHashMap<>();
 
-    private final Map<String, Integer> answerButtonIdByAnswersIndex = Map.of(
-            ANSWER_A_ID, 0,
-            ANSWER_B_ID, 1,
-            ANSWER_C_ID, 2,
-            ANSWER_D_ID, 3
-    );
+    private static final Map<String, Integer> answerButtonIdByAnswersIndex = new HashMap<>();
+    static {
+        answerButtonIdByAnswersIndex.put(ANSWER_A_ID, 0);
+        answerButtonIdByAnswersIndex.put(ANSWER_B_ID, 1);
+        answerButtonIdByAnswersIndex.put(ANSWER_C_ID, 2);
+        answerButtonIdByAnswersIndex.put(ANSWER_D_ID, 3);
+    }
+
 
     public SubscribeController(UseCase useCase) {
         this.useCase = useCase;
@@ -115,14 +118,39 @@ public class SubscribeController {
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         Member member = Objects.requireNonNull(event.getMember());
         switch (event.getComponentId()) {
-            case DEBATER_SUBSCRIBE_BTN_ID -> onClickDebaterSubscribeBtn(event, member);
-            case JUDGE_SUBSCRIBE_BTN_ID -> onClickJudgeSubscribeBtn(event, member);
-            case UNSUBSCRIBE_BTN_ID -> onClickUnsubscribe(event, member);
-            case START_TEST_ID -> onClickStartTest(event, member);
-            case ANSWER_A_ID, ANSWER_B_ID, ANSWER_C_ID, ANSWER_D_ID -> onClickAnswer(event, member);
-            case CLOSE_TEST_ID -> onClickCloseTest(event, member);
+            case DEBATER_SUBSCRIBE_BTN_ID:
+                onClickDebaterSubscribeBtn(event, member);
+                break;
+            case JUDGE_SUBSCRIBE_BTN_ID:
+                onClickJudgeSubscribeBtn(event, member);
+                break;
+            case UNSUBSCRIBE_BTN_ID:
+                onClickUnsubscribe(event, member);
+                break;
+            case START_TEST_ID:
+                onClickStartTest(event, member);
+                break;
+            case ANSWER_A_ID:
+                onClickAnswer(event, member);
+                break;
+            case ANSWER_B_ID:
+                onClickAnswer(event, member);
+                break;
+            case ANSWER_C_ID:
+                onClickAnswer(event, member);
+                break;
+            case ANSWER_D_ID:
+                onClickAnswer(event, member);
+                break;
+            case CLOSE_TEST_ID:
+                onClickCloseTest(event, member);
+                break;
+            default:
+                // Можно добавить обработку неизвестных или неожиданных ID компонентов
+                break;
         }
     }
+
 
     public void onLeaveFromVoiceChannel(@NotNull GuildVoiceUpdateEvent event) {
         boolean isDebaterSubscriber = subscribeDebatersList.stream().anyMatch(user -> user.getId().equals(event.getMember().getId()));
@@ -199,12 +227,6 @@ public class SubscribeController {
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         if (event.getMember() == null) return;
 
-        if (!isMemberHasDebaterRole(event.getMember())) {
-            useCase.showEphemeral(event).thenAccept(hook -> {
-                showNeedToStartTestEmbed(hook, member);
-            });
-            return;
-        }
         useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
 
@@ -213,10 +235,10 @@ public class SubscribeController {
                 return;
             }
 
-//            if (!isMemberHasJudgeRole(event.getMember())) {
-//                message.editOriginal(StringRes.WARNING_NEED_JUDGE_ROLE).queue();
-//                return;
-//            }
+            if (!isMemberHasJudgeRole(event.getMember())) {
+                message.editOriginal("Нужно получить роль <@&" + RolesID.DEBATER_APF_3 + "> и выше.").queue();
+                return;
+            }
 
             if (subscribeJudgesList.contains(member)) {
                 message.editOriginal(StringRes.WARNING_ALREADY_JUDGE).queue();
@@ -276,7 +298,7 @@ public class SubscribeController {
             removeFirstEntry(testDataByUserMap);
         }
 
-        if(lastTestAttemptByUser.size() > 20) {
+        if (lastTestAttemptByUser.size() > 20) {
             removeFirstEntry(lastTestAttemptByUser);
         }
 
@@ -332,7 +354,9 @@ public class SubscribeController {
                     timerForStartDebate = 0;
                     isDebateStarted = true;
                     debateController = new DebateController(useCase, this);
-                    setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> createVoiceChannels(voiceChannelsNames));
+                    setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> {
+                        createVoiceChannels(voiceChannelsNames);
+                    });
                 });
             }
         }, START_DEBATE_TIMER, TimeUnit.SECONDS);
@@ -377,18 +401,19 @@ public class SubscribeController {
                 }
 
                 if (isJudge) {
-                    allowPermissions.put(RolesID.JUDGE, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.JUDGE, Arrays.asList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
                 } else if (isTribune) {
-                    allowPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
+                    allowPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.MESSAGE_SEND));
                 } else if (isGovernment) {
-                    allowPermissions.put(RolesID.HEAD_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
-                    allowPermissions.put(RolesID.MEMBER_GOVERNMENT, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.HEAD_GOVERNMENT, Arrays.asList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Arrays.asList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
                 } else if (isOpposition) {
-                    allowPermissions.put(RolesID.HEAD_OPPOSITION, List.of(Permission.VOICE_CONNECT));
-                    allowPermissions.put(RolesID.MEMBER_OPPOSITION, List.of(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), List.of(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.HEAD_OPPOSITION, Arrays.asList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.MEMBER_OPPOSITION, Arrays.asList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
                 }
 
                 category.createVoiceChannel(channelName)
@@ -419,7 +444,7 @@ public class SubscribeController {
             if (!hasDebaterRole) membersToRolesMap.put(member, debaterRoles.get(i));
         }
 
-        for (int i = 0; i < JUDGES_LIMIT; i++){
+        for (int i = 0; i <= judgesList.size()-1; i++) {
             judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
         }
 
@@ -453,11 +478,11 @@ public class SubscribeController {
                 embedBuilder.setColor(Colors.BLUE);
                 embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
 
-                List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).toList();
+                List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).collect(Collectors.toList());
                 String debaterListString = debaters.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : String.join("\n", debaters);
                 embedBuilder.addField(StringRes.TITLE_DEBATER_LIST, debaterListString, true);
 
-                List<String> judges = subscribeJudgesList.stream().map(Member::getAsMention).toList();
+                List<String> judges = subscribeJudgesList.stream().map(Member::getAsMention).collect(Collectors.toList());
                 String judgeListString = judges.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : String.join("\n", judges);
                 embedBuilder.addField(StringRes.TITLE_JUDGES_LIST, judgeListString, true);
 
@@ -472,8 +497,8 @@ public class SubscribeController {
                 channel.editMessageEmbedsById(message.getId(), embedBuilder.build())
                         .setActionRow(debaterButton, judgeButton, unsubscribeButton)
                         .queue((msg) -> {
-                    if (callback != null) callback.run();
-                });
+                            if (callback != null) callback.run();
+                        });
             }
         });
     }
@@ -611,7 +636,9 @@ public class SubscribeController {
     }
 
     public void showTestSuccess(ButtonInteractionEvent event) {
-        Map<Member, Long> members = Map.of(Objects.requireNonNull(event.getMember()), RolesID.DEBATER_APF_1);
+        Map<Member, Long> members = new HashMap<>();
+        members.put(Objects.requireNonNull(event.getMember()), RolesID.DEBATER_APF_1);
+
         useCase.addRoleToMembers(members).thenAccept(success -> {
             EmbedBuilder winEmbed = new EmbedBuilder();
             winEmbed.setColor(Colors.GREEN);
@@ -752,9 +779,10 @@ public class SubscribeController {
         return member.getRoles().stream().anyMatch(role -> debatersRuleIds.contains(role.getIdLong()));
     }
 
-//    private boolean isMemberHasJudgeRole(Member member) {
-//        return member.getRoles().stream().anyMatch(role -> role.getIdLong() == RolesID.JUDGE_APF);
-//    }
+    private boolean isMemberHasJudgeRole(Member member) {
+        List<Long> judgeRoles = Arrays.asList(RolesID.DEBATER_APF_3, RolesID.DEBATER_APF_4, RolesID.DEBATER_APF_5);
+        return member.getRoles().stream().anyMatch(role -> judgeRoles.contains(role.getIdLong()));
+    }
 
     private boolean isMemberInList(String list, Member member) {
         return list != null && list.contains(member.getAsMention());

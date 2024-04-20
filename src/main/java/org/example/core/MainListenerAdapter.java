@@ -2,20 +2,20 @@ package org.example.core;
 
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.events.channel.update.ChannelUpdateUserLimitEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
-import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import org.example.data.source.ApiService;
-import org.example.data.source.db.DbOperations;
-import org.example.resources.StringRes;
 import org.example.core.constants.TextChannelsID;
-import org.example.domain.UseCase;
 import org.example.core.constants.VoiceChannelsID;
 import org.example.core.controllers.RatingController;
 import org.example.core.controllers.SubscribeController;
+import org.example.data.source.ApiService;
+import org.example.data.source.db.DbOperations;
+import org.example.domain.UseCase;
+import org.example.resources.StringRes;
 import org.jetbrains.annotations.NotNull;
 
 public class MainListenerAdapter extends ListenerAdapter {

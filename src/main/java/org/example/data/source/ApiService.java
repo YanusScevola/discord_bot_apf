@@ -175,7 +175,7 @@ public class ApiService {
 
         List<Role> roles = roleIds.stream()
                 .map(roleId -> server.getRoleById(roleId))
-                .filter(Objects::nonNull).toList();
+                .filter(Objects::nonNull).collect(Collectors.toList());
 
         if (roles.isEmpty()) {
             resultFuture.completeExceptionally(new IllegalArgumentException("Ни одна из заданных ролей не найдена"));
@@ -399,18 +399,21 @@ public class ApiService {
 
     public CompletableFuture<Boolean> processingMicrophone(List<Member> members, boolean mute) {
         if (members.isEmpty()) {
-            return CompletableFuture.completedFuture(true); // Список участников пуст, считаем операцию успешной
+            return CompletableFuture.completedFuture(true);
         }
 
         List<CompletableFuture<Boolean>> futures = new ArrayList<>();
-        for (Member member : members) {
+        for (int i = 0; i < members.size(); i++) {
+            Member member = members.get(i);
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
-                member.mute(mute).queue(
-                        success -> future.complete(true), // Операция успешно выполнена
+                // Добавляем задержку перед каждым запросом
+                long delay = (i * 200L) % 600; // 200 миллисекунд между каждым запросом, не превышая 1 секунд
+                member.mute(mute).queueAfter(delay, TimeUnit.MILLISECONDS,
+                        success -> future.complete(true),
                         failure -> {
                             System.err.println("Не удалось отключить микрофон у участника: " + member.getEffectiveName());
-                            future.complete(false); // Операция не удалась
+                            future.complete(false);
                         }
                 );
             } else {
@@ -421,9 +424,8 @@ public class ApiService {
         }
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Проверяем, все ли операции были успешны
+                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join));
     }
-
 
     public CompletableFuture<Boolean> moveMembers(List<Member> members, VoiceChannel targetChannel) {
         if (members.isEmpty()) {
@@ -431,9 +433,12 @@ public class ApiService {
         }
 
         List<CompletableFuture<Boolean>> futures = new ArrayList<>();
-        for (Member member : members) {
+        for (int i = 0; i < members.size(); i++) {
+            Member member = members.get(i);
             CompletableFuture<Boolean> future = new CompletableFuture<>();
-            member.getGuild().moveVoiceMember(member, targetChannel).queue(
+            // Добавляем задержку перед каждым запросом для соблюдения лимитов
+            long delay = (i * 200L) % 600; // 200 миллисекунд между каждым запросом, не превышая 1 секунду
+            member.getGuild().moveVoiceMember(member, targetChannel).queueAfter(delay, TimeUnit.MILLISECONDS,
                     success -> future.complete(true), // Операция успешно выполнена
                     failure -> {
                         System.err.println("Не удалось переместить участника: " + member.getEffectiveName() + ". Причина: " + failure.getMessage());
@@ -447,6 +452,29 @@ public class ApiService {
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Возвращаем true, если все операции успешны
     }
+
+//    public CompletableFuture<Boolean> moveMembers(List<Member> members, VoiceChannel targetChannel) {
+//        if (members.isEmpty()) {
+//            return CompletableFuture.completedFuture(true); // Список участников пуст, считаем операцию успешной
+//        }
+//
+//        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+//        for (Member member : members) {
+//            CompletableFuture<Boolean> future = new CompletableFuture<>();
+//            member.getGuild().moveVoiceMember(member, targetChannel).queue(
+//                    success -> future.complete(true), // Операция успешно выполнена
+//                    failure -> {
+//                        System.err.println("Не удалось переместить участника: " + member.getEffectiveName() + ". Причина: " + failure.getMessage());
+//                        future.complete(false); // Операция не удалась
+//                    }
+//            );
+//            futures.add(future);
+//        }
+//
+//        // Объединяем все будущие результаты и проверяем, были ли все операции успешны
+//        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+//                .thenApply(v -> futures.stream().allMatch(CompletableFuture::join)); // Возвращаем true, если все операции успешны
+//    }
 
 
     public CompletableFuture<Boolean> deleteVoiceChannels(List<VoiceChannel> channels) {

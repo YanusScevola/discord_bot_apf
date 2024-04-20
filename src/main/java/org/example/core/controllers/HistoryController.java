@@ -7,6 +7,7 @@ import org.example.core.constants.TextChannelsID;
 import org.example.domain.UseCase;
 
 import java.awt.*;
+import java.util.List;
 
 public class HistoryController {
     private static HistoryController instance;
@@ -37,17 +38,17 @@ public class HistoryController {
             String iconForJudges = " ㅤ  :scales:\n";
             String iconForOpposition = lastDebate.isGovernmentWinner() ? " ㅤ  ㅤ :baby_bottle:\n" : " ㅤ  ㅤ :trophy:\n";
 
-            var governmentDebaters = lastDebate.getGovernmentDebaters();
+            List<Member> governmentDebaters = lastDebate.getGovernmentDebaters();
             for (Member member : governmentDebaters) {
                 governmentDebatersString.append("<@").append(member.getIdLong()).append(">\n");
             }
 
-            var judges = lastDebate.getJudges();
+            List<Member> judges = lastDebate.getJudges();
             for (Member member : judges) {
                 judgesString.append("<@").append(member.getIdLong()).append(">\n");
             }
 
-            var oppositionDebaters = lastDebate.getOppositionDebaters();
+            List<Member> oppositionDebaters = lastDebate.getOppositionDebaters();
             for (Member member : oppositionDebaters) {
                 oppositionDebatersString.append("<@").append(member.getIdLong()).append(">\n");
             }

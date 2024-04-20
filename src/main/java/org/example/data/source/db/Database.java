@@ -11,9 +11,9 @@ public class Database {
     private static Database instance;
     private Connection connection;
     private static final Logger logger = LoggerFactory.getLogger(Database.class);
-    private static final String USER_NAME = "u5068_AgJsVUDQAd";
-    private static final String PASSWORD = "Q^@mZ7JmQlJ04L4oxHGshasT";
-    private static final String URL = "jdbc:mysql://u5068_AgJsVUDQAd:Q%5E%40mZ7JmQlJ04L4oxHGshasT@172.105.158.16:3306/s5068_debate_club?autoReconnect=true";
+    private static final String USER_NAME = "u7213_rrNI7cZ0CU";
+    private static final String PASSWORD = "!G8!w@TSBdMcY1lx2PJm8H7V";
+    private static final String URL = "jdbc:mysql://u7213_rrNI7cZ0CU:!G8!w%40TSBdMcY1lx2PJm8H7V@172.105.158.16:3306/s7213_debate_apf_db";
 
     private Database() {
         try {

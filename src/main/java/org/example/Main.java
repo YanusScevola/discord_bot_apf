@@ -1,10 +1,11 @@
-package org.example.core;
+package org.example;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import org.example.core.MainListenerAdapter;
 
 public class Main {
     public static void main(String[] args) {

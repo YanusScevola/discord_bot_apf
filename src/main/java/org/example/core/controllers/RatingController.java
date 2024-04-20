@@ -2,6 +2,7 @@ package org.example.core.controllers;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,13 +20,14 @@ public class RatingController {
     private static RatingController instance;
     private TextChannel channel;
     private UseCase useCase;
-    private List<Long> debatersRuleIds = new ArrayList<>(List.of(
+    private List<Long> debatersRuleIds = new ArrayList<>(Arrays.asList(
             RolesID.DEBATER_APF_1,
             RolesID.DEBATER_APF_2,
             RolesID.DEBATER_APF_3,
             RolesID.DEBATER_APF_4,
             RolesID.DEBATER_APF_5
     ));
+
 
     private RatingController(UseCase useCase) {
         this.useCase = useCase;
@@ -43,7 +45,7 @@ public class RatingController {
         try {
             this.channel = useCase.getTextChannel(TextChannelsID.RATING);
             useCase.getMembersByRoles(debatersRuleIds).thenAccept(members -> {
-                var membersIds = members.stream().map(ISnowflake::getIdLong).collect(Collectors.toList());
+                List<Long> membersIds = members.stream().map(ISnowflake::getIdLong).collect(Collectors.toList());
                 useCase.getDebatersByMemberId(membersIds).thenAccept(debaters -> {
                     EmbedBuilder eb = new EmbedBuilder();
                     eb.setTitle("Рейтинг дебатеров АПФ", null);
@@ -58,7 +60,7 @@ public class RatingController {
                         return Integer.compare(debater2.getWinnCount(), debater1.getWinnCount());
                     });
 
-                    var limitedDebaters = debaters.stream().limit(20).toList();
+                    List<Debater> limitedDebaters = debaters.stream().limit(20).collect(Collectors.toList());
                     int debaterRatingNumber = 1;
                     StringBuilder listDebaters = new StringBuilder();
                     StringBuilder listWins = new StringBuilder();
