@@ -33,42 +33,44 @@ import org.example.core.stagetimer.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {
-    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
-    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
+//    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
+//    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
 
-    private static final int DEBATERS_PREPARATION_TIME = 15;
-    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 15;
-    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 15;
-    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 15;
-    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 15;
-    private static final int OPPONENT_ASK_TIME = 15;
-    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 15;
-    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 15;
-    private static final int JUDGES_PREPARATION_TIME = 20;
-    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 15;
-    private static final int BEEP_TIME = 5;
-    private static final boolean isTest = true;
+//    private static final int DEBATERS_PREPARATION_TIME = 10;
+//    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 15;
+//    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 15;
+//    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 15;
+//    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 15;
+//    private static final int OPPONENT_ASK_TIME = 15;
+//    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 15;
+//    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 15;
+//    private static final int JUDGES_PREPARATION_TIME = 20;
+//    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 15;
+//    private static final int BEEP_TIME = 5;
+//    private static final boolean isTest = true;
 //
-//    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
-//    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
-//
-//    private static final int DEBATERS_PREPARATION_TIME = 15 * 60;
-//    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7 * 60;
-//    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8 * 60;
-//    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8 * 60;
-//    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8 * 60;
-//    private static final int OPPONENT_ASK_TIME = 20;
-//    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4 * 60;
-//    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5 * 60;
-//    private static final int JUDGES_PREPARATION_TIME = 20 * 60;
-//    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 60;
-//    private static final int BEEP_TIME = 60;
-//    private static final boolean isTest = false;
+    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
+    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
+
+    private static final int DEBATERS_PREPARATION_TIME = 15 * 60;
+    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7 * 60;
+    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8 * 60;
+    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 8 * 60;
+    private static final int MEMBER_OPPOSITION_SPEECH_TIME = 8 * 60;
+    private static final int OPPONENT_ASK_TIME = 17;
+    private static final int HEAD_OPPOSITION_LAST_SPEECH_TIME = 4 * 60;
+    private static final int HEAD_GOVERNMENT_LAST_SPEECH_TIME = 5 * 60;
+    private static final int JUDGES_PREPARATION_TIME = 20 * 60;
+    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 60;
+    private static final int BEEP_TIME = 60;
+    private static final boolean isTest = false;
 
     private static final String END_SPEECH_BTN_ID = "end_speech";
     private static final String ASK_QUESTION_BTN_ID = "ask_question";
     private static final String VOTE_GOVERNMENT_BTN_ID = "vote_government";
     private static final String VOTE_OPPOSITION_BTN_ID = "vote_opposition";
+    private static final String CLOSE_TRIBUNE_BTN_ID = "close_tribune";
+
 
     private final UseCase useCase;
     private SubscribeController subscribeController;
@@ -89,6 +91,7 @@ public class DebateController {
     private final Button endSpeechButton;
     private final Button voteGovernmentButton;
     private final Button voteOppositionButton;
+    private final Button closeTribuneButton;
 
     private final Set<VoiceChannel> allVoiceChannels = new HashSet<>();
     private final Set<Member> allDebaters = new HashSet<>();
@@ -97,6 +100,7 @@ public class DebateController {
     private final Set<Member> judges = new HashSet<>();
     private final List<Member> winners = new ArrayList<>();
     private final Map<Member, Winner> judgeVotes = new HashMap<>();
+    private Set<Member> judgesWhoClickedClose = new HashSet<>();
 
     private StageTimer currentStageTimer;
     private java.util.TimerTask beepTimerTask;
@@ -133,6 +137,8 @@ public class DebateController {
         endSpeechButton = Button.primary(END_SPEECH_BTN_ID, StringRes.BUTTON_END_SPEECH);
         voteGovernmentButton = Button.primary(VOTE_GOVERNMENT_BTN_ID, StringRes.BUTTON_VOTE_GOVERNMENT);
         voteOppositionButton = Button.primary(VOTE_OPPOSITION_BTN_ID, StringRes.BUTTON_VOTE_OPPOSITION);
+        closeTribuneButton = Button.danger(CLOSE_TRIBUNE_BTN_ID, "Закрыть трибуну");
+
         waitingRoomVoiceChannel = useCase.getVoiceChannel(VoiceChannelsID.WAITING_ROOM).join();
     }
 
@@ -184,6 +190,9 @@ public class DebateController {
                 break;
             case VOTE_OPPOSITION_BTN_ID:
                 onClickVoteOppositionBtn(event);
+                break;
+            case CLOSE_TRIBUNE_BTN_ID:
+                onClickCloseTribuneButton(event);
                 break;
             default:
                 useCase.showEphemeralShortLoading(event).thenAccept(message -> {
@@ -286,6 +295,32 @@ public class DebateController {
             }
         });
     }
+
+    private void onClickCloseTribuneButton(ButtonInteractionEvent event) {
+        if (!judges.contains(event.getMember())) {
+            event.reply(StringRes.WARNING_NOT_JUDGE).setEphemeral(true).queue();
+            return;
+        }
+
+        // Добавление судьи, который нажал кнопку, в список нажавших
+        judgesWhoClickedClose.add(event.getMember());
+
+        // Проверка, нажали ли все судьи на кнопку
+        if (judgesWhoClickedClose.containsAll(judges) && isDebateFinished) {
+            // Перемещение всех участников из трибуны в зал ожидания
+            List<Member> allTribuneMembers = new ArrayList<>(tribuneVoiceChannel.getMembers());
+            moveMembers(allTribuneMembers, waitingRoomVoiceChannel, () -> {
+                System.out.println("Все участники перемещены в зал ожидания.");
+                useCase.deleteVoiceChannels(Collections.singletonList(tribuneVoiceChannel)).thenAccept(voiceChannel -> {
+                    enableMicrophone(allTribuneMembers, null);
+                });
+            });
+            judgesWhoClickedClose.clear(); // Очистка списка после выполнения действия
+        } else {
+            event.reply("Ждем, пока все судьи подтвердят закрытие трибуны.").setEphemeral(true).queue();
+        }
+    }
+
 
     private void initDebateMember(Guild guild, Member member) {
         List<Role> roles = member.getRoles();
@@ -635,12 +670,22 @@ public class DebateController {
     private void startAskOpponent(Guild guild, Member asker, Member answerer) {
         stopCurrentAudio(guild);
         isStartAskOpponent = true;
+
+        // Приостанавливаем beepTimerTask
+        if (beepTimerTask != null) {
+            beepTimerTask.cancel();
+            beepTimerTask = null;
+        }
+
         disableMicrophone(Arrays.asList(answerer), () -> {
             pauseTimer(OPPONENT_ASK_TIME, 6, () -> {
                 isStartAskOpponent = false;
                 playAudio(guild, "Тишина.mp3", null);
                 disableMicrophone(Arrays.asList(asker), () -> {
-                    enableMicrophone(Arrays.asList(answerer), this::resumeTimer);
+                    enableMicrophone(Arrays.asList(answerer), () -> {
+                        // Возобновляем beepTimerTask после задания вопроса
+                        resumeBeepTimerTask(guild);
+                    });
                 });
             });
             playAudio(guild, "Опонент задает вопрос.mp3", () -> {
@@ -865,6 +910,7 @@ public class DebateController {
                 System.out.println("END DEBATE");
                 judgeVotes.clear();
                 subscribeController.endDebate();
+                sendCloseTribuneMessage();
             });
         } catch (Exception e) {
             e.printStackTrace();
@@ -886,6 +932,7 @@ public class DebateController {
                 System.out.println("END DEBATE");
                 judgeVotes.clear();
                 subscribeController.endDebateWithOutWinner();
+                sendCloseTribuneMessage();
             });
         } catch (Exception e) {
             e.printStackTrace();
@@ -986,6 +1033,19 @@ public class DebateController {
         return debate;
     }
 
+    private void sendCloseTribuneMessage() {
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        embedBuilder.setTitle("Завершение дебатов");
+        embedBuilder.setDescription("Прошу судей закрыть трибуну чтобы перекинуть участников в \"Зал ожидания\".");
+        embedBuilder.setColor(Colors.BLUE);
+
+        // Отправляем сообщение в канал трибуны
+        tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build())
+                .setActionRow(closeTribuneButton)
+                .queue();
+        System.out.println("Message with close tribune button sent.");
+    }
+
     private void playAudio(Guild guild, String path, Runnable callback) {
         System.out.println("PLAY " + path);
         String AUDIO_BASE_PATH = "src/main/resources/audio/";
@@ -1044,9 +1104,20 @@ public class DebateController {
         currentStageTimer.pause(time, delay, timerCallback);
     }
 
-    private void resumeTimer() {
-        System.out.println("RESUME");
+    private void resumeBeepTimerTask(Guild guild) {
+        long remainingTime = currentStageTimer.getCurrentTimeLeft();
         currentStageTimer.resume();
+
+        if (remainingTime > BEEP_TIME * 1000) {
+            beepTimerTask = new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    stopCurrentAudio(guild);
+                    playAudio(guild, "бип.mp3", null);
+                }
+            };
+            new java.util.Timer().schedule(beepTimerTask, remainingTime - BEEP_TIME * 1000);
+        }
     }
 
     private void moveMembers(List<Member> members, VoiceChannel targetChannel, Runnable callback) {

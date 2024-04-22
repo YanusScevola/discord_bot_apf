@@ -31,19 +31,19 @@ import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {
-    private static final int DEBATERS_LIMIT = 1; //4
-    private static final int JUDGES_LIMIT = 1; //1
-
-    private static final int START_DEBATE_TIMER = 5;
-    private static final int TEST_TIMER = 20;
-    private static final int TEST_ATTEMPTS = 1;
-
-//    private static final int DEBATERS_LIMIT = 4; //4
+//    private static final int DEBATERS_LIMIT = 1; //4
 //    private static final int JUDGES_LIMIT = 1; //1
 //
-//    private static final int START_DEBATE_TIMER = 30;
+//    private static final int START_DEBATE_TIMER = 5;
 //    private static final int TEST_TIMER = 20;
-//    private static final int TEST_ATTEMPTS = 5; //Minutes
+//    private static final int TEST_ATTEMPTS = 1;
+
+    private static final int DEBATERS_LIMIT = 4;
+    private static final int JUDGES_LIMIT = 1;
+
+    private static final int START_DEBATE_TIMER = 30;
+    private static final int TEST_TIMER = 20;
+    private static final int TEST_ATTEMPTS = 5;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -219,10 +219,15 @@ public class SubscribeController {
                 return;
             }
 
+            if (subscribeDebatersList.size() >= DEBATERS_LIMIT) {
+                message.editOriginal("Лимит дебатеров уже достигнут. Вы не можете подписаться.").queue();
+                return;
+            }
+
             addDebaterToList(member, () -> message.editOriginal(StringRes.REMARK_DEBATER_ADDED).queue());
         });
-
     }
+
 
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         if (event.getMember() == null) return;
@@ -401,19 +406,19 @@ public class SubscribeController {
                 }
 
                 if (isJudge) {
-                    allowPermissions.put(RolesID.JUDGE, Arrays.asList(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.JUDGE, Collections.singletonList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 } else if (isTribune) {
-                    allowPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.MESSAGE_SEND));
+                    allowPermissions.put(everyoneRole.getIdLong(),Collections.singletonList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.MESSAGE_SEND));
                 } else if (isGovernment) {
-                    allowPermissions.put(RolesID.HEAD_GOVERNMENT, Arrays.asList(Permission.VOICE_CONNECT));
-                    allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Arrays.asList(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.HEAD_GOVERNMENT,Collections.singletonList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Collections.singletonList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 } else if (isOpposition) {
-                    allowPermissions.put(RolesID.HEAD_OPPOSITION, Arrays.asList(Permission.VOICE_CONNECT));
-                    allowPermissions.put(RolesID.MEMBER_OPPOSITION, Arrays.asList(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.HEAD_OPPOSITION, Collections.singletonList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.MEMBER_OPPOSITION, Collections.singletonList(Permission.VOICE_CONNECT));
+                    denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 }
 
                 category.createVoiceChannel(channelName)
@@ -438,13 +443,14 @@ public class SubscribeController {
         Map<Member, Long> membersToRolesMap = new HashMap<>();
         Map<Member, Long> judgesToRolesMap = new HashMap<>();
 
-        for (int i = 0; i < DEBATERS_LIMIT; i++) {
+        int debatersCount = Math.min(DEBATERS_LIMIT, subscribeDebatersList.size());
+        for (int i = 0; i < debatersCount; i++) {
             Member member = subscribeDebatersList.get(i);
             boolean hasDebaterRole = member.getRoles().stream().anyMatch(role -> debaterRoles.contains(role.getIdLong()));
             if (!hasDebaterRole) membersToRolesMap.put(member, debaterRoles.get(i));
         }
 
-        for (int i = 0; i <= judgesList.size()-1; i++) {
+        for (int i = 0; i < judgesList.size(); i++) {
             judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
         }
 
