@@ -25,6 +25,7 @@ public class Database {
             createDebatersTable();
             createDebatesTable();
             createTestsTable();
+            createAwaitingTestsTable();
 
             checkAndUpdateDatabaseVersion();
         } catch (ClassNotFoundException | SQLException e) {
@@ -103,6 +104,18 @@ public class Database {
                         "PRIMARY KEY (" + DbConstants.COLUMN_TESTS_ID + "));");
     }
 
+    private void createAwaitingTestsTable() {
+        String tableDefinition = "(" +
+                DbConstants.COLUMN_AWAITING_ID + " INT NOT NULL AUTO_INCREMENT, " +
+                DbConstants.COLUMN_AWAITING_USER_ID + " BIGINT NOT NULL, " +
+                DbConstants.COLUMN_AWAITING_TEST_NAME + " VARCHAR(255) NOT NULL, " +
+                DbConstants.COLUMN_AWAITING_TEST_TIME + " TIMESTAMP NOT NULL, " +
+                "PRIMARY KEY (" + DbConstants.COLUMN_AWAITING_ID + ")" +
+                ");";
+
+        executeTableCreation(DbConstants.TABLE_AWAITING_TESTS, tableDefinition);
+    }
+
     private void executeTableCreation(String tableName, String tableDefinition) {
         if (connection != null) {
             String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " " + tableDefinition;
@@ -135,17 +148,13 @@ public class Database {
     }
 
     private void updateDatabaseVersion(int newVersion) {
-        // Удаляем все существующие записи из таблицы версий.
         String deleteSql = "DELETE FROM " + DbConstants.TABLE_DB_VERSION;
-        // Вставляем новую версию в таблицу версий.
         String insertSql = "INSERT INTO " + DbConstants.TABLE_DB_VERSION + " (" + DbConstants.COLUMN_VERSION + ") VALUES (?)";
 
         try (Statement deleteStmt = connection.createStatement()) {
-            // Выполнение запроса на удаление.
             deleteStmt.executeUpdate(deleteSql);
 
             try (PreparedStatement insertStmt = connection.prepareStatement(insertSql)) {
-                // Установка параметров и выполнение запроса на вставку.
                 insertStmt.setInt(1, newVersion);
                 insertStmt.executeUpdate();
                 logger.debug("Версия базы данных обновлена до: " + newVersion);

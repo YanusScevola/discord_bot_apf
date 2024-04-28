@@ -37,6 +37,13 @@ public class DbConstants {
     public static final String COLUMN_DEBATES_DATE_TIME = "date_time";
     public static final String COLUMN_DEBATES_IS_GOVERNMENT_WINNER = "is_government_winner";
 
+    public static final String TABLE_AWAITING_TESTS = "awaiting_tests";
+    public static final String COLUMN_AWAITING_ID = "id";
+    public static final String COLUMN_AWAITING_USER_ID = "user_id";
+    public static final String COLUMN_AWAITING_TEST_NAME = "test_name";
+    public static final String COLUMN_AWAITING_TEST_TIME = "test_time";
+
+
     private DbConstants() {
         // Приватный конструктор, чтобы предотвратить создание экземпляров класса
     }

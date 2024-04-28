@@ -9,6 +9,6 @@ public class TextChannelsID {
   public static final long SUBSCRIBE = 1193241047648718868L;
     public static final long RATING = 1193241942235025599L;
     public static final long HISTORY = 1193241502114123857L;
-    public static final long RULES = 1227691298811674747L;
+    public static final long RULES = 1134924836083339316L;
 
 }

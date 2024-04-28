@@ -1,6 +1,6 @@
 package org.example.core.controllers;
 
-import java.awt.*;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
@@ -19,15 +19,13 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.managers.AudioManager;
 
+import org.example.core.constants.*;
+import org.example.core.models.AwaitingTestUser;
 import org.example.core.models.Question;
 import org.example.core.models.TestDataByUser;
 import org.example.resources.Colors;
 import org.example.resources.StringRes;
-import org.example.core.constants.CategoriesID;
-import org.example.core.constants.RolesID;
-import org.example.core.constants.TextChannelsID;
 import org.example.domain.UseCase;
-import org.example.core.constants.VoiceChannelsID;
 import org.jetbrains.annotations.NotNull;
 
 public class SubscribeController {
@@ -43,7 +41,6 @@ public class SubscribeController {
 
     private static final int START_DEBATE_TIMER = 30;
     private static final int TEST_TIMER = 20;
-    private static final int TEST_ATTEMPTS = 5;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -55,7 +52,7 @@ public class SubscribeController {
     private static final String ANSWER_D_ID = "answer_d";
     private static final String CLOSE_TEST_ID = "close_test";
 
-    private static final int MAX_QUESTIONS = 3;
+    private static final int MAX_QUESTIONS = 6;
 
     private final TextChannel channel;
     private final UseCase useCase;
@@ -94,10 +91,10 @@ public class SubscribeController {
     private final List<Member> subscribeDebatersList = new ArrayList<>();
     private final List<Member> subscribeJudgesList = new ArrayList<>();
     private final LinkedHashMap<Member, TestDataByUser> testDataByUserMap = new LinkedHashMap<>();
-    private final LinkedHashMap<Long, Long> lastTestAttemptByUser = new LinkedHashMap<>();
     private final Map<Long, InteractionHook> memberByNeedToStartTestHook = new ConcurrentHashMap<>();
 
     private static final Map<String, Integer> answerButtonIdByAnswersIndex = new HashMap<>();
+
     static {
         answerButtonIdByAnswersIndex.put(ANSWER_A_ID, 0);
         answerButtonIdByAnswersIndex.put(ANSWER_B_ID, 1);
@@ -232,6 +229,13 @@ public class SubscribeController {
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         if (event.getMember() == null) return;
 
+        if (!isMemberHasDebaterRole(event.getMember())) {
+            useCase.showEphemeral(event).thenAccept(hook -> {
+                showNeedToStartTestEmbed(hook, member);
+            });
+            return;
+        }
+
         useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             AudioChannelUnion voiceChannel = Objects.requireNonNull(event.getMember().getVoiceState()).getChannel();
 
@@ -278,42 +282,42 @@ public class SubscribeController {
     }
 
     private void onClickStartTest(ButtonInteractionEvent event, Member member) {
-        long currentTimeMillis = System.currentTimeMillis();
-        boolean hasAttempt = lastTestAttemptByUser.containsKey(member.getIdLong());
-        long timeSinceLastAttempt = hasAttempt ? currentTimeMillis - lastTestAttemptByUser.get(member.getIdLong()) : Long.MAX_VALUE;
-        boolean isCoolDownPassed = timeSinceLastAttempt >= TimeUnit.MINUTES.toMillis(TEST_ATTEMPTS);
-        long nextAttemptTime = hasAttempt ? (lastTestAttemptByUser.get(member.getIdLong()) + TimeUnit.MINUTES.toMillis(TEST_ATTEMPTS)) / 1000 : 0;
+        useCase.removeOverdueAwaitingTestUser().join();
+        useCase.getAwaitingTestUser(member.getIdLong(), AwaitingTestID.APF_TEST).thenAccept(awaitingTestUser -> {
+            long currentTimeMillis = System.currentTimeMillis();
+            boolean hasAttempt = awaitingTestUser != null;
+            Timestamp coolDownEndTime = hasAttempt ? awaitingTestUser.getTime() : null;
+            boolean isCoolDownPassed = coolDownEndTime == null || coolDownEndTime.getTime() <= currentTimeMillis;
 
-        if (hasAttempt && !isCoolDownPassed) {
-            String textMessage = String.format("Вы можете начать тест заново только <t:%d:R> после последней попытки.", nextAttemptTime);
-            useCase.showEphemeralShortLoading(event).thenAccept(hook -> {
-                hook.editOriginal(textMessage).queue();
-            });
-            return;
-        }
+            if (hasAttempt && !isCoolDownPassed) {
+                long coolDownEndUnix = coolDownEndTime.getTime() / 1000;
+                String textMessage = String.format("Вы можете начать тест заново только <t:%d:R> после последней попытки.", coolDownEndUnix);
+                useCase.showEphemeralShortLoading(event).thenAccept(hook -> {
+                    hook.editOriginal(textMessage).queue();
+                });
+                return;
+            }
 
-        if (testDataByUserMap.containsKey(event.getMember())) {
-            useCase.showEphemeralShortLoading(event).thenAccept(message -> {
-                message.editOriginal("Тест уже начат, подождите пока он закончится").queue();
-            });
-            return;
-        }
+            if (testDataByUserMap.containsKey(event.getMember())) {
+                useCase.showEphemeralShortLoading(event).thenAccept(message -> {
+                    message.editOriginal("Тест уже начат, подождите пока он закончится").queue();
+                });
+                return;
+            }
 
-        if (testDataByUserMap.size() > 20) {
-            removeFirstEntry(testDataByUserMap);
-        }
+            if (testDataByUserMap.size() > 20) {
+                removeFirstEntry(testDataByUserMap);
+            }
 
-        if (lastTestAttemptByUser.size() > 20) {
-            removeFirstEntry(lastTestAttemptByUser);
-        }
-
-        event.deferReply(true).queue(loadingHook -> {
-            useCase.getAllQuestions().thenAccept(questions -> {
-                loadingHook.deleteOriginal().queue();
-                showFirstQuestion(member, questions);
+            event.deferReply(true).queue(loadingHook -> {
+                useCase.getAllQuestions().thenAccept(questions -> {
+                    loadingHook.deleteOriginal().queue();
+                    showFirstQuestion(member, questions);
+                });
             });
         });
     }
+
 
     private void onClickAnswer(ButtonInteractionEvent event, Member member) {
         TestDataByUser currentTestData = testDataByUserMap.get(event.getMember());
@@ -409,10 +413,10 @@ public class SubscribeController {
                     allowPermissions.put(RolesID.JUDGE, Collections.singletonList(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 } else if (isTribune) {
-                    allowPermissions.put(everyoneRole.getIdLong(),Collections.singletonList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.MESSAGE_SEND));
                 } else if (isGovernment) {
-                    allowPermissions.put(RolesID.HEAD_GOVERNMENT,Collections.singletonList(Permission.VOICE_CONNECT));
+                    allowPermissions.put(RolesID.HEAD_GOVERNMENT, Collections.singletonList(Permission.VOICE_CONNECT));
                     allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Collections.singletonList(Permission.VOICE_CONNECT));
                     denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 } else if (isOpposition) {
@@ -450,9 +454,10 @@ public class SubscribeController {
             if (!hasDebaterRole) membersToRolesMap.put(member, debaterRoles.get(i));
         }
 
-        for (int i = 0; i < judgesList.size(); i++) {
-            judgesToRolesMap.put(judgesList.get(i), RolesID.JUDGE);
-        }
+
+        judgesList.forEach((member) -> {
+            judgesToRolesMap.put(member, RolesID.JUDGE);
+        });
 
         useCase.addRoleToMembers(membersToRolesMap).thenAccept(success -> {
             useCase.addRoleToMembers(judgesToRolesMap).thenAccept(success1 -> {
@@ -666,7 +671,7 @@ public class SubscribeController {
 
         event.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
                 success -> {
-                    lastTestAttemptByUser.put(Objects.requireNonNull(event.getMember()).getIdLong(), System.currentTimeMillis());
+                    useCase.addAwaitingTest(new AwaitingTestUser(event.getMember(), AwaitingTestID.APF_TEST, new Timestamp(System.currentTimeMillis())));
                     testDataByUserMap.remove(event.getMember());
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -679,7 +684,7 @@ public class SubscribeController {
 
         hook.editOriginalEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
                 success -> {
-                    lastTestAttemptByUser.put(Objects.requireNonNull(member).getIdLong(), System.currentTimeMillis());
+                    useCase.addAwaitingTest(new AwaitingTestUser(member, AwaitingTestID.APF_TEST, new Timestamp(System.currentTimeMillis())));
                     testDataByUserMap.remove(member);
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -692,7 +697,7 @@ public class SubscribeController {
 
         message.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_ID, "Закрыть")).queue(
                 success -> {
-                    lastTestAttemptByUser.put(Objects.requireNonNull(member).getIdLong(), System.currentTimeMillis());
+                    useCase.addAwaitingTest(new AwaitingTestUser(member, AwaitingTestID.APF_TEST, new Timestamp(System.currentTimeMillis())));
                     testDataByUserMap.remove(member);
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -801,5 +806,6 @@ public class SubscribeController {
             map.remove(firstKey);
         }
     }
+
 
 }

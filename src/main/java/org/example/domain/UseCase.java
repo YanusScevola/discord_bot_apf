@@ -9,10 +9,9 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import org.example.core.models.Debate;
-import org.example.core.models.Debater;
-import org.example.core.models.Question;
-import org.example.core.models.Theme;
+import org.example.core.models.*;
+import org.example.core.utils.DateTimeUtils;
+import org.example.data.models.AwaitingTestUserModel;
 import org.example.data.models.DebateModel;
 import org.example.data.models.DebaterModel;
 import org.example.data.models.ThemeModel;
@@ -20,10 +19,9 @@ import org.example.data.source.ApiService;
 import org.example.data.source.db.DbOperations;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -733,5 +731,78 @@ public class UseCase {
                 })
                 .collect(Collectors.toList()));
     }
+
+
+    public CompletableFuture<Boolean> addAwaitingTest(AwaitingTestUser testUser) {
+        LocalDateTime localDateTime = testUser.getTime().toLocalDateTime();
+        LocalDateTime updatedDateTime = localDateTime.plusMinutes(30);
+        LocalDateTime utcDateTime = DateTimeUtils.toUtc(updatedDateTime);
+        Timestamp utcTimestamp = Timestamp.valueOf(utcDateTime);
+
+        testUser.setTime(utcTimestamp);
+
+        AwaitingTestUserModel testModel = new AwaitingTestUserModel(
+                testUser.getMember().getIdLong(),
+                testUser.getTestName(),
+                testUser.getTime()
+        );
+
+        return dataBase.addAwaitingTestUser(testModel);
+    }
+
+    public CompletableFuture<AwaitingTestUser> getAwaitingTestUser(Long userId, String testName) {
+        return dataBase.getAwaitingTestUser(userId, testName).thenCompose(testUserModels -> {
+            if (testUserModels.isEmpty()) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            AwaitingTestUserModel model = testUserModels.get(0);
+
+            return apiService.getMembersByIds(Collections.singletonList(model.getUserId())).thenApply(members -> {
+                if(members.isEmpty()) {
+                    return null;
+                }
+
+                Member member = members.get(0);
+                LocalDateTime utcDateTime = model.getTime().toLocalDateTime();
+                LocalDateTime localDateTime = DateTimeUtils.fromUtc(utcDateTime);
+                Timestamp utcTimestamp = Timestamp.valueOf(localDateTime);
+                return new AwaitingTestUser(member, model.getTestName(), utcTimestamp);
+            });
+        });
+    }
+
+    public CompletableFuture<List<AwaitingTestUser>> searchAwaitingTestUsers(long userId, String testName) {
+        return dataBase.searchAwaitingTestUsers(userId, testName).thenApply(testUserModels -> {
+            List<AwaitingTestUser> testUsers = new ArrayList<>();
+            for (AwaitingTestUserModel model : testUserModels) {
+                Member member = apiService.getMemberById(model.getUserId()).join();  // Получаем пользователя по ID
+                AwaitingTestUser testUser = new AwaitingTestUser(member, model.getTestName(), model.getTime());
+                testUsers.add(testUser);
+            }
+            return testUsers;
+        });
+    }
+
+    public CompletableFuture<Boolean> removeOverdueAwaitingTestUser() {
+        return dataBase.removeOverdueAwaitingTestUser().thenApply(result -> {
+            if(result) {
+                System.out.println("Удалены просроченные записи");
+                return true;
+            }else {
+                System.out.println("Нет просроченных записей");
+                return false;
+            }
+        });
+    }
+
+
+
+
+
+
+
+
+
 
 }

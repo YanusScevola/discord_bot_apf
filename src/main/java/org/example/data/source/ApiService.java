@@ -9,11 +9,9 @@ import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.example.core.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
-
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +89,26 @@ public class ApiService {
 
         return resultFuture;
     }
+
+    public CompletableFuture<Member> getMemberById(long memberId) {
+        CompletableFuture<Member> resultFuture = new CompletableFuture<>();
+
+        if (server == null) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Сервер не найден"));
+            return resultFuture;
+        }
+
+        server.retrieveMemberById(memberId).queue(
+                resultFuture::complete,
+                error -> {
+                    System.err.println("Не удалось получить информацию о члене сервера с ID: " + memberId + ". Ошибка: " + error.getMessage());
+                    resultFuture.completeExceptionally(new IllegalArgumentException("Член сервера с таким ID не найден"));
+                }
+        );
+
+        return resultFuture;
+    }
+
 
     public CompletableFuture<Member> getMemberByRole(long roleId) {
         CompletableFuture<Member> resultFuture = new CompletableFuture<>();
@@ -408,7 +426,7 @@ public class ApiService {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             if (member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
                 // Добавляем задержку перед каждым запросом
-                long delay = (i * 200L) % 600; // 200 миллисекунд между каждым запросом, не превышая 1 секунд
+                long delay = (i * 200L) % 1000; // 200 миллисекунд между каждым запросом, не превышая 1 секунд
                 member.mute(mute).queueAfter(delay, TimeUnit.MILLISECONDS,
                         success -> future.complete(true),
                         failure -> {
@@ -437,7 +455,7 @@ public class ApiService {
             Member member = members.get(i);
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             // Добавляем задержку перед каждым запросом для соблюдения лимитов
-            long delay = (i * 200L) % 600; // 200 миллисекунд между каждым запросом, не превышая 1 секунду
+            long delay = (i * 200L) % 1000;
             member.getGuild().moveVoiceMember(member, targetChannel).queueAfter(delay, TimeUnit.MILLISECONDS,
                     success -> future.complete(true), // Операция успешно выполнена
                     failure -> {
