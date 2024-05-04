@@ -50,23 +50,16 @@ public class UseCase {
         return apiService.getTextChannel(channelId);
     }
 
-    public Guild getGuild() {
-        return apiService.getGuild();
+    public Member getBotMember() {
+        return apiService.getBotMember();
     }
 
-    public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
-        return apiService.getMembersByRole(roleId);
-    }
-    public CompletableFuture<List<Member>> getMembersByRoles(List<Long> roleIds) {
-        return apiService.getMembersByRoles(roleIds);
+    public CompletableFuture<List<Member>> getMembersByRoleIDs(List<Long> ids) {
+        return apiService.getMembersByRolesIds(ids);
     }
 
     public CompletableFuture<VoiceChannel> getVoiceChannel(long channelId) {
         return apiService.getVoiceChannelById(channelId);
-    }
-
-    public CompletableFuture<Member> getMemberByRole(long roleId) {
-        return apiService.getMemberByRole(roleId);
     }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {

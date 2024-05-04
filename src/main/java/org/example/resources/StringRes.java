@@ -19,7 +19,7 @@ public class StringRes {
 
     public static final String TITLE_DEBATER_LIST = "Дебатеры:";
     public static final String TITLE_JUDGES_LIST = "Судьи:";
-    public static final String TITLE_TIMER = "Дебаты начнутся через:";
+    public static final String TITLE_TIMER = "Подготовка дебатеров начнется через:";
     public static final String TITLE_DEBATE_SUBSCRIBE = "Запись на дебаты АПФ:";
     public static final String TITLE_VOTING = "Голосование:";
     public static final String TITLE_MEMBER_GOVERNMENT_SPEECH = "Речь члена правительства.";

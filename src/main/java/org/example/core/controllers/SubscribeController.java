@@ -1,9 +1,11 @@
 package org.example.core.controllers;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -23,6 +25,7 @@ import org.example.core.constants.*;
 import org.example.core.models.AwaitingTestUser;
 import org.example.core.models.Question;
 import org.example.core.models.TestDataByUser;
+import org.example.core.models.Theme;
 import org.example.resources.Colors;
 import org.example.resources.StringRes;
 import org.example.domain.UseCase;
@@ -31,16 +34,15 @@ import org.jetbrains.annotations.NotNull;
 public class SubscribeController {
 //    private static final int DEBATERS_LIMIT = 1; //4
 //    private static final int JUDGES_LIMIT = 1; //1
-//
 //    private static final int START_DEBATE_TIMER = 5;
 //    private static final int TEST_TIMER = 20;
-//    private static final int TEST_ATTEMPTS = 1;
 
     private static final int DEBATERS_LIMIT = 4;
     private static final int JUDGES_LIMIT = 1;
-
     private static final int START_DEBATE_TIMER = 30;
     private static final int TEST_TIMER = 20;
+
+    private static final int MAX_QUESTIONS = 6;
 
     private static final String DEBATER_SUBSCRIBE_BTN_ID = "debater_subscribe";
     private static final String JUDGE_SUBSCRIBE_BTN_ID = "judge_subscribe";
@@ -52,12 +54,11 @@ public class SubscribeController {
     private static final String ANSWER_D_ID = "answer_d";
     private static final String CLOSE_TEST_ID = "close_test";
 
-    private static final int MAX_QUESTIONS = 6;
-
     private final TextChannel channel;
     private final UseCase useCase;
     private final RatingController ratingController;
     private final HistoryController historyController;
+    private Message messageDebateStart;
 
     public DebateController debateController;
     private ScheduledFuture<?> debateStartTask;
@@ -110,6 +111,7 @@ public class SubscribeController {
         this.historyController = HistoryController.getInstance(useCase);
 
         showSubscribeMessage();
+        ratingController.displayDebatersList();
     }
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
@@ -166,7 +168,9 @@ public class SubscribeController {
     private void showSubscribeMessage() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setColor(Colors.BLUE);
-        embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
+//        embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
+        embedBuilder.setDescription("Чтобы дебаты начались, необходимо \nнабрать " + DEBATERS_LIMIT + " дебатеров и минимум "
+                + JUDGES_LIMIT + " судья.");
         embedBuilder.addField(StringRes.TITLE_DEBATER_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
         embedBuilder.addField(StringRes.TITLE_JUDGES_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true);
 
@@ -225,7 +229,6 @@ public class SubscribeController {
         });
     }
 
-
     private void onClickJudgeSubscribeBtn(@NotNull ButtonInteractionEvent event, Member member) {
         if (event.getMember() == null) return;
 
@@ -245,7 +248,7 @@ public class SubscribeController {
             }
 
             if (!isMemberHasJudgeRole(event.getMember())) {
-                message.editOriginal("Нужно получить роль <@&" + RolesID.DEBATER_APF_3 + "> и выше.").queue();
+                message.editOriginal("Нужно получить роль <@&" + RolesID.DEBATER_APF_3 + "> 3-го уровня и выше.").queue();
                 return;
             }
 
@@ -345,53 +348,96 @@ public class SubscribeController {
     private void onClickCloseTest(ButtonInteractionEvent event, Member member) {
         event.deferEdit().queue();
         event.getHook().deleteOriginal().queue(
-                success -> System.out.println("Cообщение о закрытии теста удалено"),
+                success -> System.out.println("Сообщение о закрытии теста удалено"),
                 failure -> System.err.println("Не удалось удалить сообщение о закрытии теста: " + failure.getMessage())
         );
     }
 
     private void startDebateTimer(long messageId, EmbedBuilder embed) {
         timerForStartDebate = System.currentTimeMillis() / 1000L + START_DEBATE_TIMER;
-        embed.addField(StringRes.TITLE_TIMER, "<t:" + timerForStartDebate + ":R>", false);
+        embed.setDescription("**Внимание дебатеры!**\n- Через " + START_DEBATE_TIMER + " секунд вас перекинут по голосовым каналам чтобы вы могли подготовить аргументы и стратегию победы.\n- Тема дебатов будет доступна в етом чате или в чате Трибуны после начала подготоки.");
+        embed.addField("Подгатовка дебатеров начнется через: ", "<t:" + timerForStartDebate + ":R>", false);
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         debateStartTask = scheduler.schedule(() -> {
             if (System.currentTimeMillis() / 1000L >= timerForStartDebate) {
                 channel.retrieveMessageById(messageId).queue(message -> {
-                    updateDebateMessage(message);
+                    messageDebateStart = message;
+//                    updateStartDebateMessage(message);
 
                     timerForStartDebate = 0;
                     isDebateStarted = true;
                     debateController = new DebateController(useCase, this);
+
                     setupDebateRoles(subscribeDebatersList, subscribeJudgesList, () -> {
-                        createVoiceChannels(voiceChannelsNames);
+                        useCase.getVoiceChannel(VoiceChannelsID.WAITING_ROOM).thenAccept(waitingRoomChannel -> {
+                            moveBotToVoiceChannel(waitingRoomChannel);
+                            createVoiceChannels(voiceChannelsNames, () -> {
+                                debateController.startDebate(message.getGuild());
+                            });
+                        });
                     });
                 });
             }
         }, START_DEBATE_TIMER, TimeUnit.SECONDS);
     }
 
-    private void updateDebateMessage(Message message) {
-        EmbedBuilder embedBuilder = new EmbedBuilder(message.getEmbeds().get(0));
-        embedBuilder.clearFields()
-                .addField(StringRes.TITLE_DEBATER_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true)
-                .addField(StringRes.TITLE_JUDGES_LIST, StringRes.DESCRIPTION_NO_MEMBERS, true)
-                .addField(StringRes.TITLE_TIMER, StringRes.DESCRIPTION_NEED_GO_TO_TRIBUNE, false);
+    public void updateDebaterPreparationMessage(Theme currentTheme, int debatersPreparationTime) {
+        EmbedBuilder embedBuilder = new EmbedBuilder(messageDebateStart.getEmbeds().get(0));
+        embedBuilder.clearFields();
 
-        channel.editMessageEmbedsById(message.getId(), embedBuilder.build())
+        String debaterListString = subscribeDebatersList.stream()
+                .map(Member::getAsMention)
+                .collect(Collectors.joining("\n"));
+        String judgeListString = subscribeJudgesList.stream()
+                .map(Member::getAsMention)
+                .collect(Collectors.joining("\n"));
+
+        debaterListString = debaterListString.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : debaterListString;
+        judgeListString = judgeListString.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : judgeListString;
+
+        long currentTime = Instant.now().getEpochSecond();
+        long eventStartTime = currentTime + debatersPreparationTime;
+
+        embedBuilder.setDescription("**Тема:** " + currentTheme.getName() + "\n\n")
+                .addField(StringRes.TITLE_DEBATER_LIST, debaterListString, true)
+                .addField(StringRes.TITLE_JUDGES_LIST, judgeListString, true).addField(" ㅤ  ㅤ ", " ㅤ  ㅤ ", true)
+                .addField("Подготовка дебатеров: ", "<t:" + eventStartTime + ":R>", false);
+
+        Message updatedMessage = channel.editMessageEmbedsById(messageDebateStart.getId(), embedBuilder.build())
                 .setActionRow(
                         Button.primary(DEBATER_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_DEBATER).asDisabled(),
                         Button.primary(JUDGE_SUBSCRIBE_BTN_ID, StringRes.BUTTON_SUBSCRIBE_JUDGE).asDisabled(),
                         Button.danger(UNSUBSCRIBE_BTN_ID, StringRes.BUTTON_UNSUBSCRIBE).asDisabled()
-                ).queue();
+                ).complete();
+
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        String finalDebaterListString = debaterListString;
+        String finalJudgeListString = judgeListString;
+        scheduler.schedule(() -> {
+            EmbedBuilder finalEmbedBuilder = new EmbedBuilder(updatedMessage.getEmbeds().get(0))
+                    .clearFields()
+                    .setDescription("**Тема:** " + currentTheme.getName() + "\n\n")
+                    .addField(StringRes.TITLE_DEBATER_LIST, finalDebaterListString, true)
+                    .addField(StringRes.TITLE_JUDGES_LIST, finalJudgeListString, true)
+                    .addField("Дебаты начались!", "", false);
+
+            updatedMessage.editMessageEmbeds(finalEmbedBuilder.build()).queue();
+            scheduler.shutdown();
+        }, debatersPreparationTime, TimeUnit.SECONDS);
     }
 
-    private void createVoiceChannels(List<String> channelNames) {
+
+    private void createVoiceChannels(List<String> channelNames, Runnable callback) {
         Category category = useCase.getCategoryByID(CategoriesID.DEBATE_CATEGORY).join();
         if (category != null) {
             Guild guild = category.getGuild();
             Role everyoneRole = guild.getPublicRole();
             List<VoiceChannel> existingChannels = category.getVoiceChannels();
+
+            AtomicInteger completedChannelsCount = new AtomicInteger(0); // Счетчик созданных каналов
+            int totalChannels = channelNames.size(); // Общее количество каналов для создания
+
 
             for (String channelName : channelNames) {
                 boolean isJudge = channelName.equals(StringRes.CHANNEL_JUDGE);
@@ -414,7 +460,13 @@ public class SubscribeController {
                     denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
                 } else if (isTribune) {
                     allowPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.VOICE_CONNECT));
-                    denyPermissions.put(everyoneRole.getIdLong(), Collections.singletonList(Permission.MESSAGE_SEND));
+                    allowPermissions.put(1193537115003301971L, Collections.singletonList(Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.HEAD_GOVERNMENT, Collections.singletonList(Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.HEAD_OPPOSITION, Collections.singletonList(Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Collections.singletonList(Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.MEMBER_OPPOSITION, Collections.singletonList(Permission.VOICE_SPEAK));
+                    allowPermissions.put(RolesID.JUDGE, Collections.singletonList(Permission.VOICE_SPEAK));
+                    denyPermissions.put(everyoneRole.getIdLong(), Arrays.asList(Permission.VOICE_SPEAK, Permission.MESSAGE_SEND));
                 } else if (isGovernment) {
                     allowPermissions.put(RolesID.HEAD_GOVERNMENT, Collections.singletonList(Permission.VOICE_CONNECT));
                     allowPermissions.put(RolesID.MEMBER_GOVERNMENT, Collections.singletonList(Permission.VOICE_CONNECT));
@@ -428,15 +480,21 @@ public class SubscribeController {
                 category.createVoiceChannel(channelName)
                         .addRolePermissionOverride(everyoneRole.getIdLong(), allowPermissions.get(everyoneRole.getIdLong()), denyPermissions.get(everyoneRole.getIdLong()))
                         .addRolePermissionOverride(RolesID.JUDGE, allowPermissions.get(RolesID.JUDGE), denyPermissions.get(RolesID.JUDGE))
+                        .addRolePermissionOverride(RolesID.JUDGE, allowPermissions.get(RolesID.JUDGE), denyPermissions.get(RolesID.JUDGE))
                         .addRolePermissionOverride(RolesID.HEAD_GOVERNMENT, allowPermissions.get(RolesID.HEAD_GOVERNMENT), denyPermissions.get(RolesID.HEAD_GOVERNMENT))
                         .addRolePermissionOverride(RolesID.HEAD_OPPOSITION, allowPermissions.get(RolesID.HEAD_OPPOSITION), denyPermissions.get(RolesID.HEAD_OPPOSITION))
                         .addRolePermissionOverride(RolesID.MEMBER_GOVERNMENT, allowPermissions.get(RolesID.MEMBER_GOVERNMENT), denyPermissions.get(RolesID.MEMBER_GOVERNMENT))
                         .addRolePermissionOverride(RolesID.MEMBER_OPPOSITION, allowPermissions.get(RolesID.MEMBER_OPPOSITION), denyPermissions.get(RolesID.MEMBER_OPPOSITION))
                         .queue(channel -> {
                             debateController.addChannel(channel);
-                            if (isTribune) moveBotToVoiceChannel(channel);
+
+                            if (completedChannelsCount.incrementAndGet() == totalChannels) {
+                                callback.run();
+                            }
                         });
             }
+
+
         } else {
 //            Utils.sendLogError(useCase, "createVoiceChannels", "Категория не найдена. Проверьте ID.");
         }
@@ -467,6 +525,7 @@ public class SubscribeController {
     }
 
     private void moveBotToVoiceChannel(VoiceChannel channel) {
+
         if (channel != null) {
             Guild guild = channel.getGuild();
             AudioManager audioManager = guild.getAudioManager();
@@ -487,7 +546,9 @@ public class SubscribeController {
                 Message message = history.getRetrievedHistory().get(0);
                 EmbedBuilder embedBuilder = new EmbedBuilder();
                 embedBuilder.setColor(Colors.BLUE);
-                embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
+//                embedBuilder.setTitle(StringRes.TITLE_DEBATE_SUBSCRIBE);
+                embedBuilder.setDescription("" + "Чтобы дебаты начались, необходимо \nнабрать " + DEBATERS_LIMIT + " дебатера и минимум "
+                        + JUDGES_LIMIT + " судья.");
 
                 List<String> debaters = subscribeDebatersList.stream().map(Member::getAsMention).collect(Collectors.toList());
                 String debaterListString = debaters.isEmpty() ? StringRes.DESCRIPTION_NO_MEMBERS : String.join("\n", debaters);
@@ -710,7 +771,7 @@ public class SubscribeController {
         lossEmbed.setColor(Colors.RED);
         lossEmbed.setTitle("Тест провален :cry:");
         lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + MAX_QUESTIONS + " вопросов.\n" +
-                "- Перепройди тест через 10 минут.");
+                "- Перепройди тест через 30 минут.");
         return lossEmbed;
     }
 
@@ -729,17 +790,23 @@ public class SubscribeController {
 
     private void removeDebaterFromList(Member member, Runnable callback) {
         subscribeDebatersList.remove(member);
-        if (timerForStartDebate != 0 && subscribeDebatersList.size() < DEBATERS_LIMIT) {
+        if (timerForStartDebate != 0 && (subscribeDebatersList.size() < DEBATERS_LIMIT || subscribeJudgesList.size() < JUDGES_LIMIT)) {
             cancelDebateStart(callback);
         } else {
             updateList(callback);
         }
     }
 
+
     private void removeJudgeFromList(Member member, Runnable callback) {
         subscribeJudgesList.remove(member);
-        updateList(callback);
+        if (timerForStartDebate != 0 && (subscribeJudgesList.size() < JUDGES_LIMIT || subscribeDebatersList.size() < DEBATERS_LIMIT)) {
+            cancelDebateStart(callback);
+        } else {
+            updateList(callback);
+        }
     }
+
 
     private void cancelDebateStart(Runnable callback) {
         if (debateStartTask != null && !debateStartTask.isDone()) {

@@ -10,8 +10,10 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.utils.concurrent.Task;
 import org.example.core.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -39,9 +41,10 @@ public class ApiService {
         return jda.getTextChannelById(channelId);
     }
 
-    public Guild getGuild() {
-        return jda.getGuildById(ServerID.SERVER_ID);
+    public Member getBotMember() {
+        return server.getSelfMember();
     }
+
 
     public CompletableFuture<List<Member>> getMembersByIds(List<Long> memberIds) {
         CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
@@ -110,58 +113,71 @@ public class ApiService {
     }
 
 
-    public CompletableFuture<Member> getMemberByRole(long roleId) {
-        CompletableFuture<Member> resultFuture = new CompletableFuture<>();
+    public CompletableFuture<List<Role>> getRolesByIds(List<Long> roleIds) {
+        CompletableFuture<List<Role>> resultFuture = new CompletableFuture<>();
 
         if (server == null) {
             resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
             return resultFuture;
         }
 
-        Role role = server.getRoleById(roleId);
-        if (role == null) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
-            return resultFuture;
-        }
+        List<Role> roles = roleIds.stream()
+                .map(server::getRoleById)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-        server.loadMembers().onSuccess(members -> {
-            Member member = members.stream()
-                    .filter(m -> m.getRoles().contains(role))
-                    .findFirst()
-                    .orElse(null);
-            if (member != null) {
-                resultFuture.complete(member);
-            } else {
-                resultFuture.completeExceptionally(new IllegalArgumentException("Нет участников с такой ролью"));
-            }
-        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+        if (roles.isEmpty()) {
+            resultFuture.completeExceptionally(new IllegalArgumentException("Роли не найдены"));
+        } else {
+            resultFuture.complete(roles);
+        }
 
         return resultFuture;
     }
 
-    public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
-        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
-
-        if (server == null) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
-            return resultFuture;
-        }
-
-        Role role = server.getRoleById(roleId);
-        if (role == null) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
-            return resultFuture;
-        }
-
-        server.loadMembers().onSuccess(members -> {
-            List<Member> filteredMembers = members.stream()
-                    .filter(member -> member.getRoles().contains(role))
-                    .collect(Collectors.toList());
-            resultFuture.complete(filteredMembers);
-        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
-
-        return resultFuture;
+    public CompletableFuture<List<Member>> getMembersByRolesIds(List<Long> ids) {
+        return CompletableFuture.supplyAsync(() -> {
+            return server.findMembers(member -> member.getRoles().stream().anyMatch(role -> ids.contains(role.getIdLong()))).get();
+        });
+//        return getRolesByIds(ids)
+//                .thenCompose(roles -> {
+//                    if (roles.isEmpty()) {
+//                        CompletableFuture<List<Member>> future = new CompletableFuture<>();
+//                        future.completeExceptionally(new IllegalArgumentException("Нет ролей с указанными ID"));
+//                        return future;
+//                    }
+//                    return CompletableFuture.supplyAsync(() -> {
+//                        Task<List<Member>> task = server.findMembers(member -> member.getRoles().stream().anyMatch(roles::contains));
+//                        return task.get();
+//                    });
+//                });
     }
+
+
+    //    public CompletableFuture<List<Member>> getMembersByRole(long roleId) {
+//        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
+//
+//        if (server == null) {
+//            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+//            return resultFuture;
+//        }
+//
+//        Role role = server.getRoleById(roleId);
+//        if (role == null) {
+//            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такой роли"));
+//            return resultFuture;
+//        }
+//
+//        server.loadMembers().onSuccess(members -> {
+//            List<Member> filteredMembers = members.stream()
+//                    .filter(member -> member.getRoles().contains(role))
+//                    .collect(Collectors.toList());
+//            resultFuture.complete(filteredMembers);
+//        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+//
+//        return resultFuture;
+//    }
+//
     public CompletableFuture<VoiceChannel> getVoiceChannelById(long channelId) {
         CompletableFuture<VoiceChannel> future = new CompletableFuture<>();
         if (server == null) {
@@ -178,38 +194,38 @@ public class ApiService {
     }
 
 
-    public CompletableFuture<List<Member>> getMembersByRoles(List<Long> roleIds) {
-        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
-
-        if (server == null) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
-            return resultFuture;
-        }
-
-        if (roleIds == null || roleIds.isEmpty()) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Список идентификаторов ролей пуст"));
-            return resultFuture;
-        }
-
-        List<Role> roles = roleIds.stream()
-                .map(roleId -> server.getRoleById(roleId))
-                .filter(Objects::nonNull).collect(Collectors.toList());
-
-        if (roles.isEmpty()) {
-            resultFuture.completeExceptionally(new IllegalArgumentException("Ни одна из заданных ролей не найдена"));
-            return resultFuture;
-        }
-
-        // Загружаем всех участников сервера и фильтруем тех, у кого есть хотя бы одна из заданных ролей
-        server.loadMembers().onSuccess(members -> {
-            List<Member> filteredMembers = members.stream()
-                    .filter(member -> member.getRoles().stream().anyMatch(roles::contains))
-                    .collect(Collectors.toList());
-            resultFuture.complete(filteredMembers);
-        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
-
-        return resultFuture;
-    }
+//    public CompletableFuture<List<Member>> getMembersByRoles(List<Long> roleIds) {
+//        CompletableFuture<List<Member>> resultFuture = new CompletableFuture<>();
+//
+//        if (server == null) {
+//            resultFuture.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
+//            return resultFuture;
+//        }
+//
+//        if (roleIds == null || roleIds.isEmpty()) {
+//            resultFuture.completeExceptionally(new IllegalArgumentException("Список идентификаторов ролей пуст"));
+//            return resultFuture;
+//        }
+//
+//        List<Role> roles = roleIds.stream()
+//                .map(roleId -> server.getRoleById(roleId))
+//                .filter(Objects::nonNull).collect(Collectors.toList());
+//
+//        if (roles.isEmpty()) {
+//            resultFuture.completeExceptionally(new IllegalArgumentException("Ни одна из заданных ролей не найдена"));
+//            return resultFuture;
+//        }
+//
+//        // Загружаем всех участников сервера и фильтруем тех, у кого есть хотя бы одна из заданных ролей
+//        server.loadMembers().onSuccess(members -> {
+//            List<Member> filteredMembers = members.stream()
+//                    .filter(member -> member.getRoles().stream().anyMatch(roles::contains))
+//                    .collect(Collectors.toList());
+//            resultFuture.complete(filteredMembers);
+//        }).onError(e -> resultFuture.completeExceptionally(new RuntimeException("Ошибка загрузки участников", e)));
+//
+//        return resultFuture;
+//    }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
         CompletableFuture<Message> resultFuture = new CompletableFuture<>();

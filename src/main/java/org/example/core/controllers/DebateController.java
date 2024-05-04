@@ -1,6 +1,5 @@
 package org.example.core.controllers;
 
-import java.awt.Color;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,10 +32,8 @@ import org.example.core.stagetimer.StageTimer;
 import org.jetbrains.annotations.NotNull;
 
 public class DebateController {
-//    private static final int GOVERNMENT_DEBATERS_LIMIT = 1;
-//    private static final int OPPOSITION_DEBATERS_LIMIT = 0;
 
-//    private static final int DEBATERS_PREPARATION_TIME = 10;
+//    private static final int DEBATERS_PREPARATION_TIME = 15;
 //    private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 15;
 //    private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 15;
 //    private static final int MEMBER_GOVERNMENT_SPEECH_TIME = 15;
@@ -48,10 +45,7 @@ public class DebateController {
 //    private static final int WAITING_MEMBER_IN_TRIBUNE_TIME = 15;
 //    private static final int BEEP_TIME = 5;
 //    private static final boolean isTest = true;
-//
-    private static final int GOVERNMENT_DEBATERS_LIMIT = 2;
-    private static final int OPPOSITION_DEBATERS_LIMIT = 2;
-
+    //
     private static final int DEBATERS_PREPARATION_TIME = 15 * 60;
     private static final int HEAD_GOVERNMENT_FIRST_SPEECH_TIME = 7 * 60;
     private static final int HEAD_OPPOSITION_FIRST_SPEECH_TIME = 8 * 60;
@@ -93,18 +87,18 @@ public class DebateController {
     private final Button voteOppositionButton;
     private final Button closeTribuneButton;
 
-    private final Set<VoiceChannel> allVoiceChannels = new HashSet<>();
-    private final Set<Member> allDebaters = new HashSet<>();
-    private final Set<Member> governmentDebaters = new HashSet<>();
-    private final Set<Member> oppositionDebaters = new HashSet<>();
-    private final Set<Member> judges = new HashSet<>();
+    private List<Member> allDebaters = new ArrayList<>();
+    private List<Member> governmentDebaters = new ArrayList<>();
+    private List<Member> oppositionDebaters = new ArrayList<>();
+    private List<Member> judges = new ArrayList<>();
+    private Set<Member> judgesWhoClickedClose = new HashSet<>();
     private final List<Member> winners = new ArrayList<>();
     private final Map<Member, Winner> judgeVotes = new HashMap<>();
-    private Set<Member> judgesWhoClickedClose = new HashSet<>();
+    private final Set<VoiceChannel> allVoiceChannels = new HashSet<>();
 
     private StageTimer currentStageTimer;
     private java.util.TimerTask beepTimerTask;
-    private Stage currentStage = Stage.START_DEBATE;
+    private Stage currentStage = Stage.DEBATERS_PREPARATION;
     private Winner winner = Winner.NO_WINNER;
     private Timer waitingMemberInTribuneTimer;
     private Theme currentTheme;
@@ -128,6 +122,13 @@ public class DebateController {
         roleIdByWinCountMap.put(16, RolesID.DEBATER_APF_5);
     }
 
+    private final List<Long> judgeEndDebatersRuleIds = new ArrayList<>(Arrays.asList(
+            RolesID.HEAD_GOVERNMENT,
+            RolesID.HEAD_OPPOSITION,
+            RolesID.MEMBER_GOVERNMENT,
+            RolesID.MEMBER_OPPOSITION,
+            RolesID.JUDGE
+    ));
 
     public DebateController(UseCase useCase, SubscribeController subscribeController) {
         this.useCase = useCase;
@@ -140,39 +141,25 @@ public class DebateController {
         closeTribuneButton = Button.danger(CLOSE_TRIBUNE_BTN_ID, "Закрыть трибуну");
 
         waitingRoomVoiceChannel = useCase.getVoiceChannel(VoiceChannelsID.WAITING_ROOM).join();
+        bot = useCase.getBotMember();
     }
 
     public void onJoinToTribuneVoiceChannel(Guild guild, AudioChannel channelJoined, Member member) {
-        initDebateMember(guild, member);
-        boolean isBotJoined = member.equals(bot);
 
-        if (currentStage != Stage.DEBATERS_PREPARATION && currentStage != Stage.JUDGES_PREPARATION) {
-            disableMicrophone(Arrays.asList(member), null);
-        }
+//        if (currentStage != Stage.DEBATERS_PREPARATION && currentStage != Stage.JUDGES_PREPARATION) {
+//            disableMicrophone(Collections.singletonList(member), null);
+//        }
 
         if (isDebateStarted) {
             handelWaitingMemberInTribuneForSpeak(guild, channelJoined, member);
         }
-
-        if (currentStage == Stage.JUDGES_PREPARATION) {
-            if (new HashSet<>(judgesVoiceChannel.getMembers()).containsAll(judges)) {
-                startStage(guild, Stage.JUDGES_VERDICT);
-            }
-        }
-
-        if (isBotJoined && !isDebateStarted) {
-            isDebateStarted = true;
-            moveMembers(waitingRoomVoiceChannel.getMembers(), tribuneVoiceChannel, () -> {
-                startDebate(guild);
-            });
-        }
     }
 
     public void onLeaveFromTribuneVoiceChannel(Guild guild, AudioChannel channelLeft, Member member) {
-        if (!isDebateFinished) useCase.enabledMicrophone(Arrays.asList(member));
+        if (!isDebateFinished) useCase.enabledMicrophone(Collections.singletonList(member));
 
         if (isDebateFinished && tribuneVoiceChannel.getMembers().isEmpty()) {
-            useCase.deleteVoiceChannels(Arrays.asList(tribuneVoiceChannel)).join();
+            useCase.deleteVoiceChannels(Collections.singletonList(tribuneVoiceChannel)).join();
         }
     }
 
@@ -241,7 +228,7 @@ public class DebateController {
                         }
                         message.editOriginal(StringRes.REMARK_ASK_OPPOSITION_MEMBER).queue((msg) -> {
                             isMemberOfOppositionAlreadyAsked = true;
-                            startAskOpponent(event.getGuild(), event.getMember(), memberGovernment);
+                            startAskOpponent(event.getGuild(), event.getMember(), memberOpposition);
                         });
                     } else
                         message.editOriginal(StringRes.WARNING_NOT_ASK_OWN_TEAM).queue();
@@ -262,7 +249,7 @@ public class DebateController {
 
             if (canEndSpeech) {
                 message.editOriginal(StringRes.REMARK_SPEECH_END).queue((msg) -> {
-                    skipTimer(member.getId());
+                    skipTimer("<@" + member.getId() + ">");
                 });
             } else {
                 message.editOriginal("Вы не можете закончить чужую речь").queue();
@@ -274,9 +261,6 @@ public class DebateController {
         useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.GOVERNMENT);
-//                voteForWinner(event, Winner.GOVERNMENT, () -> {
-//                    message.editOriginal(StringRes.REMARK_VOTE_GOVERNMENT).queue();
-//                });
             } else {
                 message.editOriginal(StringRes.WARNING_NOT_JUDGE).queue();
             }
@@ -287,9 +271,6 @@ public class DebateController {
         useCase.showEphemeralShortLoading(event).thenAccept(message -> {
             if (judges.contains(event.getMember())) {
                 voteForWinner(event, Winner.OPPOSITION);
-//                voteForWinner(event, Winner.OPPOSITION, () -> {
-//                    message.editOriginal(StringRes.REMARK_VOTE_OPPOSITION).queue();
-//                });
             } else {
                 message.editOriginal(StringRes.WARNING_NOT_JUDGE).queue();
             }
@@ -302,12 +283,9 @@ public class DebateController {
             return;
         }
 
-        // Добавление судьи, который нажал кнопку, в список нажавших
         judgesWhoClickedClose.add(event.getMember());
 
-        // Проверка, нажали ли все судьи на кнопку
         if (judgesWhoClickedClose.containsAll(judges) && isDebateFinished) {
-            // Перемещение всех участников из трибуны в зал ожидания
             List<Member> allTribuneMembers = new ArrayList<>(tribuneVoiceChannel.getMembers());
             moveMembers(allTribuneMembers, waitingRoomVoiceChannel, () -> {
                 System.out.println("Все участники перемещены в зал ожидания.");
@@ -319,46 +297,6 @@ public class DebateController {
         } else {
             event.reply("Ждем, пока все судьи подтвердят закрытие трибуны.").setEphemeral(true).queue();
         }
-    }
-
-
-    private void initDebateMember(Guild guild, Member member) {
-        List<Role> roles = member.getRoles();
-
-        if (roles.contains(guild.getRoleById(RolesID.HEAD_GOVERNMENT))) {
-            headGovernment = member;
-            governmentDebaters.add(member);
-            allDebaters.add(member);
-        }
-        if (roles.contains(guild.getRoleById(RolesID.HEAD_OPPOSITION))) {
-            headOpposition = member;
-            oppositionDebaters.add(member);
-            allDebaters.add(member);
-        }
-        if (roles.contains(guild.getRoleById(RolesID.MEMBER_GOVERNMENT))) {
-            memberGovernment = member;
-            governmentDebaters.add(member);
-            allDebaters.add(member);
-        }
-        if (roles.contains(guild.getRoleById(RolesID.MEMBER_OPPOSITION))) {
-            memberOpposition = member;
-            oppositionDebaters.add(member);
-            allDebaters.add(member);
-        }
-        if (roles.contains(guild.getRoleById(RolesID.JUDGE))) {
-            judges.add(member);
-        }
-        if (member.equals(guild.getSelfMember())) {
-            bot = member;
-        }
-
-        if (isTest) {
-            if (judges.size() != 0)
-                headOpposition = new ArrayList<>(judges).get(0);
-            memberGovernment = headGovernment;
-            memberOpposition = headGovernment;
-        }
-
     }
 
     private void handelWaitingMemberInTribuneForSpeak(Guild guild, AudioChannel channelJoined, Member member) {
@@ -391,10 +329,10 @@ public class DebateController {
         }
     }
 
-    private void startDebate(Guild guild) {
+    public void startDebate(Guild guild) {
         isDebateStarted = true;
         isDebateFinished = false;
-        startStage(guild, Stage.START_DEBATE);
+        startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
     }
 
     private void sendDebateTheme() {
@@ -402,79 +340,73 @@ public class DebateController {
             currentTheme = theme;
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.setTitle("Тема: " + currentTheme.getName()).setColor(Colors.GREEN);
+
             tribuneVoiceChannel.sendMessageEmbeds(embedBuilder.build()).queue();
+            subscribeController.updateDebaterPreparationMessage(currentTheme, DEBATERS_PREPARATION_TIME);
         });
     }
 
     private void startStage(Guild guild, @NotNull Stage stage) {
-        switch (stage) {
-            case START_DEBATE:
-                startGreetingsStage(guild);
-                break;
-            case DEBATERS_PREPARATION:
-                startDebatersPreparationStage(guild);
-                break;
-            case HEAD_GOVERNMENT_FIRST_SPEECH:
-                startHeadGovernmentFirstSpeechStage(guild);
-                break;
-            case HEAD_OPPOSITION_FIRST_SPEECH:
-                startHeadOppositionFirstSpeechStage(guild);
-                break;
-            case MEMBER_GOVERNMENT_SPEECH:
-                startMemberGovernmentSpeechStage(guild);
-                break;
-            case MEMBER_OPPOSITION_SPEECH:
-                startMemberOppositionSpeechStage(guild);
-                break;
-            case HEAD_OPPOSITION_LAST_SPEECH:
-                startHeadOppositionLastSpeechStage(guild);
-                break;
-            case HEAD_GOVERNMENT_LAST_SPEECH:
-                startHeadGovernmentLastSpeechStage(guild);
-                break;
-            case JUDGES_PREPARATION:
-                startJudgesPreparationStage(guild);
-                break;
-            case JUDGES_VERDICT:
-                startVerdictStage(guild);
-                break;
-            default:
-                // Обработка неожиданных значений перечисления, если необходимо
-                break;
-        }
-    }
-
-
-    private void startGreetingsStage(Guild guild) {
-        isDebateStarted = true;
-        currentStage = Stage.START_DEBATE;
-        playAudio(guild, "Приветствие.mp3", () -> startStage(guild, Stage.DEBATERS_PREPARATION));
+        updateJudgesEndDebaters(() -> {
+            switch (stage) {
+                case DEBATERS_PREPARATION:
+                    startDebatersPreparationStage(guild);
+                    break;
+                case HEAD_GOVERNMENT_FIRST_SPEECH:
+                    startHeadGovernmentFirstSpeechStage(guild);
+                    break;
+                case HEAD_OPPOSITION_FIRST_SPEECH:
+                    startHeadOppositionFirstSpeechStage(guild);
+                    break;
+                case MEMBER_GOVERNMENT_SPEECH:
+                    startMemberGovernmentSpeechStage(guild);
+                    break;
+                case MEMBER_OPPOSITION_SPEECH:
+                    startMemberOppositionSpeechStage(guild);
+                    break;
+                case HEAD_OPPOSITION_LAST_SPEECH:
+                    startHeadOppositionLastSpeechStage(guild);
+                    break;
+                case HEAD_GOVERNMENT_LAST_SPEECH:
+                    startHeadGovernmentLastSpeechStage(guild);
+                    break;
+                case JUDGES_PREPARATION:
+                    startJudgesPreparationStage(guild);
+                    break;
+                case JUDGES_VERDICT:
+                    startVerdictStage(guild);
+                    break;
+                default:
+                    // Обработка неожиданных значений перечисления, если необходимо
+                    break;
+            }
+        });
     }
 
     private void startDebatersPreparationStage(Guild guild) {
         currentStage = Stage.DEBATERS_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = StringRes.TITLE_DEBATER_PREPARATION;
-        List<Button> buttons = Arrays.asList();
+        List<Button> buttons = Collections.emptyList();
 
-        playAudio(guild, "Подготовка дебатеров.mp3", () -> {
-            sendDebateTheme();
-            moveMembers(new ArrayList<>(oppositionDebaters), oppositionVoiceChannel, () -> {
-                moveMembers(new ArrayList<>(governmentDebaters), governmentVoiceChannel, () -> {
-                    startTimer(currentStageTimer, title, "", DEBATERS_PREPARATION_TIME, buttons, guild, () -> {
-                        ArrayList<Member> allDebaterList = new ArrayList<>();
-                        allDebaterList.addAll(tribuneVoiceChannel.getMembers());
-                        allDebaterList.addAll(governmentVoiceChannel.getMembers());
-                        allDebaterList.addAll(oppositionVoiceChannel.getMembers());
-                        disableMicrophone(allDebaterList, () -> {
-                            moveMembers(new ArrayList<>(allDebaters), tribuneVoiceChannel, () -> {
-                                stopCurrentAudio(guild);
-                                startStage(guild, Stage.HEAD_GOVERNMENT_FIRST_SPEECH);
-                            });
+        sendDebateTheme();
+        moveMembers(oppositionDebaters, oppositionVoiceChannel, () -> {
+            moveMembers(governmentDebaters, governmentVoiceChannel, () -> {
+                startTimer(currentStageTimer, title, "", DEBATERS_PREPARATION_TIME, buttons, guild, (message) -> {
+                    List<Member> judgesEndDebaters = new ArrayList<>();
+                    judgesEndDebaters.addAll(judges);
+                    judgesEndDebaters.addAll(allDebaters);
+                    disableMicrophone(judgesEndDebaters, () -> {
+                        moveMembers(judgesEndDebaters, tribuneVoiceChannel, () -> {
+                            stopCurrentAudio(guild);
+                            startStage(guild, Stage.HEAD_GOVERNMENT_FIRST_SPEECH);
                         });
                     });
+                });
+
+                moveMembers(Collections.singletonList(bot), waitingRoomVoiceChannel, () -> {
                     playAudio(guild, "Разговоры пока дебатеры готовятся.mp3", () -> {
-                        enableMicrophone(tribuneVoiceChannel.getMembers(), null);
+                        moveBotToVoiceChannel(guild, tribuneVoiceChannel);
                         playAudio(guild, "Тишина.mp3", null);
                     });
                 });
@@ -493,7 +425,7 @@ public class DebateController {
             playAudio(guild, "Вступ глава правительства.mp3", () -> {
                 enableMicrophone(Collections.singletonList(headGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, headGovernment.getId(), HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, guild, () -> {
+                    startTimer(currentStageTimer, title, "<@" + headGovernment.getId() + ">", HEAD_GOVERNMENT_FIRST_SPEECH_TIME, buttons, guild, (message) -> {
                         disableMicrophone(Collections.singletonList(headGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_OPPOSITION_FIRST_SPEECH);
@@ -514,14 +446,14 @@ public class DebateController {
         currentStage = Stage.HEAD_OPPOSITION_FIRST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = StringRes.TITLE_HEAD_OPPOSITION_FIRST_SPEECH;
-        List<Button> buttons = Arrays.asList(endSpeechButton);
+        List<Button> buttons = Collections.singletonList(endSpeechButton);
 
         if (isDebaterAreInTribune || isTest) {
             playAudio(guild, "Вступ глава оппозиции.mp3", () -> {
-                enableMicrophone(Arrays.asList(headOpposition), () -> {
+                enableMicrophone(Collections.singletonList(headOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, headOpposition.getId(), HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, guild, () -> {
-                        disableMicrophone(Arrays.asList(headOpposition), () -> {
+                    startTimer(currentStageTimer, title, "<@" + headOpposition.getId() + ">", HEAD_OPPOSITION_FIRST_SPEECH_TIME, buttons, guild, (message) -> {
+                        disableMicrophone(Collections.singletonList(headOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.MEMBER_GOVERNMENT_SPEECH);
                         });
@@ -544,10 +476,10 @@ public class DebateController {
         List<Button> buttons = Arrays.asList(askQuestionButton, endSpeechButton);
         if (isDebaterAreInTribune || isTest) {
             playAudio(guild, "Член правительства.mp3", () -> {
-                enableMicrophone(Arrays.asList(memberGovernment), () -> {
+                enableMicrophone(Collections.singletonList(memberGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, memberGovernment.getId(), MEMBER_GOVERNMENT_SPEECH_TIME, buttons, guild, () -> {
-                        disableMicrophone(Arrays.asList(memberGovernment), () -> {
+                    startTimer(currentStageTimer, title, "<@" + memberGovernment.getId() + ">", MEMBER_GOVERNMENT_SPEECH_TIME, buttons, guild, (message) -> {
+                        disableMicrophone(Collections.singletonList(memberGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.MEMBER_OPPOSITION_SPEECH);
                         });
@@ -570,10 +502,10 @@ public class DebateController {
         List<Button> buttons = Arrays.asList(askQuestionButton, endSpeechButton);
         if (isDebaterAreInTribune || isTest) {
             playAudio(guild, "Член оппозиции.mp3", () -> {
-                enableMicrophone(Arrays.asList(memberOpposition), () -> {
+                enableMicrophone(Collections.singletonList(memberOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, memberOpposition.getId(), MEMBER_OPPOSITION_SPEECH_TIME, buttons, guild, () -> {
-                        disableMicrophone(Arrays.asList(memberOpposition), () -> {
+                    startTimer(currentStageTimer, title, "<@" + memberOpposition.getId() + ">", MEMBER_OPPOSITION_SPEECH_TIME, buttons, guild, (message) -> {
+                        disableMicrophone(Collections.singletonList(memberOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_OPPOSITION_LAST_SPEECH);
                         });
@@ -593,13 +525,13 @@ public class DebateController {
         currentStage = Stage.HEAD_OPPOSITION_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = StringRes.TITLE_HEAD_OPPOSITION_LAST_SPEECH;
-        List<Button> buttons = Arrays.asList(endSpeechButton);
+        List<Button> buttons = Collections.singletonList(endSpeechButton);
         if (isDebaterAreInTribune || isTest) {
             playAudio(guild, "Закл глава оппозиции.mp3", () -> {
-                enableMicrophone(Arrays.asList(headOpposition), () -> {
+                enableMicrophone(Collections.singletonList(headOpposition), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, headOpposition.getId(), HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, guild, () -> {
-                        disableMicrophone(Arrays.asList(headOpposition), () -> {
+                    startTimer(currentStageTimer, title, "<@" + headOpposition.getId() + ">", HEAD_OPPOSITION_LAST_SPEECH_TIME, buttons, guild, (message) -> {
+                        disableMicrophone(Collections.singletonList(headOpposition), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.HEAD_GOVERNMENT_LAST_SPEECH);
                         });
@@ -619,13 +551,13 @@ public class DebateController {
         currentStage = Stage.HEAD_GOVERNMENT_LAST_SPEECH;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
         String title = StringRes.TITLE_HEAD_GOVERNMENT_LAST_SPEECH;
-        List<Button> buttons = Arrays.asList(endSpeechButton);
+        List<Button> buttons = Collections.singletonList(endSpeechButton);
         if (isDebaterAreInTribune || isTest) {
             playAudio(guild, "Закл глава правительства.mp3", () -> {
-                enableMicrophone(Arrays.asList(headGovernment), () -> {
+                enableMicrophone(Collections.singletonList(headGovernment), () -> {
                     playAudio(guild, "Тишина.mp3", null);
-                    startTimer(currentStageTimer, title, headGovernment.getId(), HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, guild, () -> {
-                        disableMicrophone(Arrays.asList(headGovernment), () -> {
+                    startTimer(currentStageTimer, title, "<@" + headGovernment.getId() + ">", HEAD_GOVERNMENT_LAST_SPEECH_TIME, buttons, guild, (message) -> {
+                        disableMicrophone(Collections.singletonList(headGovernment), () -> {
                             stopCurrentAudio(guild);
                             startStage(guild, Stage.JUDGES_PREPARATION);
                         });
@@ -643,26 +575,18 @@ public class DebateController {
     private void startJudgesPreparationStage(Guild guild) {
         currentStage = Stage.JUDGES_PREPARATION;
         currentStageTimer = new StageTimer(tribuneVoiceChannel);
-        String title = StringRes.TITLE_JUDGES_PREPARATION;
+        String title = "Прошу судей принять решение";
         playAudio(guild, "Подготовка судей.mp3", () -> {
-//            playAudio(guild, "Разговоры пока судьи готовятся.mp3", () -> {
-            moveMembers(judges.stream().collect(Collectors.toList()), judgesVoiceChannel, () -> {
-                sendVotingMessage();
-                startTimer(currentStageTimer, title, "", JUDGES_PREPARATION_TIME, new ArrayList<>(), guild, () -> {
-//                    if (winners == null || winners.isEmpty()) {
-                    disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
-                        stopCurrentAudio(guild);
-                        moveMembers(judges.stream().collect(Collectors.toList()), tribuneVoiceChannel, () -> {
-                            startStage(guild, Stage.JUDGES_VERDICT);
-                        });
-                    });
-//                    }
+//            sendVotingMessage();
+            enableMicrophone(judges, () -> {
+                startTimer(currentStageTimer, title, StringRes.DESCRIPTION_VOTE_FOR_GOVERNMENT + votesForGovernment + StringRes.DESCRIPTION_VOTE_FOR_OPPOSITION + votesForOpposition, JUDGES_PREPARATION_TIME, Arrays.asList(voteGovernmentButton, voteOppositionButton), guild, (message) -> {
+                    votingMessage = message;
+                    stopCurrentAudio(guild);
+                    startStage(guild, Stage.JUDGES_VERDICT);
                 });
-                enableMicrophone(tribuneVoiceChannel.getMembers(), null);
-                playAudio(guild, "Тишина.mp3", () -> {
+            });
+            playAudio(guild, "Тишина.mp3", () -> {
 
-                });
-//                });
             });
         });
     }
@@ -677,19 +601,19 @@ public class DebateController {
             beepTimerTask = null;
         }
 
-        disableMicrophone(Arrays.asList(answerer), () -> {
+        disableMicrophone(Collections.singletonList(answerer), () -> {
             pauseTimer(OPPONENT_ASK_TIME, 6, () -> {
                 isStartAskOpponent = false;
                 playAudio(guild, "Тишина.mp3", null);
-                disableMicrophone(Arrays.asList(asker), () -> {
-                    enableMicrophone(Arrays.asList(answerer), () -> {
+                disableMicrophone(Collections.singletonList(asker), () -> {
+                    enableMicrophone(Collections.singletonList(answerer), () -> {
                         // Возобновляем beepTimerTask после задания вопроса
                         resumeBeepTimerTask(guild);
                     });
                 });
             });
             playAudio(guild, "Опонент задает вопрос.mp3", () -> {
-                enableMicrophone(Arrays.asList(asker), null);
+                enableMicrophone(Collections.singletonList(asker), null);
             });
         });
     }
@@ -697,55 +621,55 @@ public class DebateController {
     private void startVerdictStage(Guild guild) {
         currentStage = Stage.JUDGES_VERDICT;
         System.out.println("Голосование завершено");
-        moveMembers(judges.stream().collect(Collectors.toList()), tribuneVoiceChannel, () -> {
-            disableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
-                switch (winner) {
-                    case GOVERNMENT:
-                        playAudio(guild, "Победа правительства.mp3", () -> {
-                            enableMicrophone(judges.stream().collect(Collectors.toList()), () -> {
-                                AudioManager audioManager = guild.getAudioManager();
-                                if (audioManager.isConnected()) {
-                                    audioManager.closeAudioConnection();
-                                    System.out.println("Остановка аудио");
-                                    endDebate();
-                                } else {
-                                    System.out.println("Бот уже не находится в голосовом канале.");
-                                }
-                            });
+//        moveMembers(judges, tribuneVoiceChannel, () -> {
+        disableMicrophone(judges, () -> {
+            switch (winner) {
+                case GOVERNMENT:
+                    playAudio(guild, "Победа правительства.mp3", () -> {
+                        enableMicrophone(judges, () -> {
+                            AudioManager audioManager = guild.getAudioManager();
+                            if (audioManager.isConnected()) {
+                                audioManager.closeAudioConnection();
+                                System.out.println("Остановка аудио");
+                                endDebate();
+                            } else {
+                                System.out.println("Бот уже не находится в голосовом канале.");
+                            }
                         });
-                        break;
-                    case OPPOSITION:
-                        playAudio(guild, "Победа оппозиции.mp3", () -> {
-                            enableMicrophone(judges.stream().collect(Collectors.toList()), () -> {
-                                AudioManager audioManager = guild.getAudioManager();
-                                if (audioManager.isConnected()) {
-                                    audioManager.closeAudioConnection();
-                                    endDebate();
-                                } else {
-                                    System.out.println("Бот уже не находится в голосовом канале.");
-                                }
-                            });
+                    });
+                    break;
+                case OPPOSITION:
+                    playAudio(guild, "Победа оппозиции.mp3", () -> {
+                        enableMicrophone(judges, () -> {
+                            AudioManager audioManager = guild.getAudioManager();
+                            if (audioManager.isConnected()) {
+                                audioManager.closeAudioConnection();
+                                endDebate();
+                            } else {
+                                System.out.println("Бот уже не находится в голосовом канале.");
+                            }
                         });
-                        break;
-                    case NO_WINNER:
-                        playAudio(guild, "Ничья.mp3", () -> {
-                            enableMicrophone(tribuneVoiceChannel.getMembers(), () -> {
-                                AudioManager audioManager = guild.getAudioManager();
-                                if (audioManager.isConnected()) {
-                                    audioManager.closeAudioConnection();
-                                    endDebateWithOutWinner();
-                                } else {
-                                    System.out.println("Бот уже не находится в голосовом канале.");
-                                }
-                            });
+                    });
+                    break;
+                case NO_WINNER:
+                    playAudio(guild, "Ничья.mp3", () -> {
+                        enableMicrophone(judges, () -> {
+                            AudioManager audioManager = guild.getAudioManager();
+                            if (audioManager.isConnected()) {
+                                audioManager.closeAudioConnection();
+                                endDebateWithOutWinner();
+                            } else {
+                                System.out.println("Бот уже не находится в голосовом канале.");
+                            }
                         });
-                        break;
-                    default:
-                        // Действие в случае, если winner не соответствует ни одному из ожидаемых значений
-                        break;
-                }
-            });
+                    });
+                    break;
+                default:
+                    // Действие в случае, если winner не соответствует ни одному из ожидаемых значений
+                    break;
+            }
         });
+//        });
         isDebateFinished = true;
     }
 
@@ -790,16 +714,6 @@ public class DebateController {
         message.editMessageEmbeds(embedBuilder.build()).queue();
     }
 
-    public void sendVotingMessage() {
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setTitle(StringRes.TITLE_VOTING);
-        eb.setDescription(StringRes.DESCRIPTION_VOTE_FOR_GOVERNMENT + votesForGovernment + StringRes.DESCRIPTION_VOTE_FOR_OPPOSITION + votesForOpposition);
-        eb.setColor(Colors.BLUE);
-
-        judgesVoiceChannel.sendMessageEmbeds(eb.build())
-                .setActionRow(voteGovernmentButton, voteOppositionButton)
-                .queue(message -> votingMessage = message);
-    }
 
     private void voteForWinner(ButtonInteractionEvent event, Winner newVote) {
         Member judge = event.getMember();
@@ -894,9 +808,9 @@ public class DebateController {
     private void endDebate() {
         try {
             Map<Member, Long> memberToRoleMap = new HashMap<>();
-            List<Member> allDebatersEndJudges = new ArrayList<>();
-            allDebatersEndJudges.addAll(allDebaters);
-            allDebatersEndJudges.addAll(judges);
+//            List<Member> allDebatersEndJudges = new ArrayList<>();
+//            allDebatersEndJudges.addAll(allDebaters);
+//            allDebatersEndJudges.addAll(judges);
 
             judges.forEach(jude -> memberToRoleMap.put(jude, RolesID.JUDGE));
             if (headGovernment != null) memberToRoleMap.put(headGovernment, RolesID.HEAD_GOVERNMENT);
@@ -906,7 +820,7 @@ public class DebateController {
 
             useCase.removeRoleFromUsers(memberToRoleMap);
             useCase.deleteVoiceChannels(Arrays.asList(governmentVoiceChannel, oppositionVoiceChannel, judgesVoiceChannel));
-            insertDebaterEndDebateToDb(allDebatersEndJudges.stream().collect(Collectors.toList()), () -> {
+            insertDebaterEndDebateToDb(allDebaters, () -> {
                 System.out.println("END DEBATE");
                 judgeVotes.clear();
                 subscribeController.endDebate();
@@ -959,7 +873,7 @@ public class DebateController {
                         if (winners.contains(member)) {
                             debater.setWinnCount(debater.getWinnCount() + 1);
                             if (roleIdByWinCountMap.containsKey(debater.getWinnCount())) {
-                                List<Long> allRolesForDebater = roleIdByWinCountMap.values().stream().collect(Collectors.toList());
+                                List<Long> allRolesForDebater = new ArrayList<>(roleIdByWinCountMap.values());
                                 List<Role> currentMemberRoles = member.getRoles();
                                 Long newDebaterRole = roleIdByWinCountMap.get(debater.getWinnCount());
                                 allRolesForDebater.forEach(debaterRoleId -> {
@@ -995,7 +909,7 @@ public class DebateController {
                         } else {
                             debater.setLossesCount(1);
                         }
-                        debater.setDebates(Arrays.asList(finishedDebate));
+                        debater.setDebates(Collections.singletonList(finishedDebate));
                         finishedDebaters.add(debater);
                     }
                 }
@@ -1069,9 +983,9 @@ public class DebateController {
     }
 
 
-    private void startTimer(StageTimer timer, String title, String userId, long time, List<Button> buttons, Guild guild, Runnable timerCallback) {
+    private void startTimer(StageTimer timer, String title, String description, long time, List<Button> buttons, Guild guild, StageTimer.MessageCallback timerCallback) {
         System.out.println("START " + title);
-        timer.start(title, userId, time, buttons, timerCallback);
+        timer.start(title, description, time, buttons, timerCallback);
 
         if (time > BEEP_TIME) {
             beepTimerTask = new java.util.TimerTask() {
@@ -1086,7 +1000,7 @@ public class DebateController {
     }
 
 
-    private void skipTimer(String userId) {
+    private void skipTimer(String description) {
         System.out.println("SKIP");
 
         if (!isStartAskOpponent) {
@@ -1096,7 +1010,7 @@ public class DebateController {
             }
         }
 
-        currentStageTimer.skip(userId);
+        currentStageTimer.skip(description);
     }
 
     private void pauseTimer(long time, long delay, Runnable timerCallback) {
@@ -1155,6 +1069,76 @@ public class DebateController {
         useCase.disabledMicrophone(modifiableMembers).thenAccept(success -> {
             if (callback != null) callback.run();
         });
+    }
+
+    private void updateJudgesEndDebaters(Runnable callback) {
+        useCase.getMembersByRoleIDs(judgeEndDebatersRuleIds).thenAccept(members -> {
+            Set<Member> governmentDebatersSet = new HashSet<>();
+            Set<Member> oppositionDebatersSet = new HashSet<>();
+            Set<Member> allDebatersSet = new HashSet<>();
+            Set<Member> allJudgesSet = new HashSet<>();
+
+            members.forEach(member -> {
+                List<Long> memberRolesIDs = member.getRoles().stream().map(Role::getIdLong).collect(Collectors.toList());
+                if (memberRolesIDs.contains(RolesID.HEAD_GOVERNMENT)) {
+                    headGovernment = member;
+                    governmentDebatersSet.add(member);
+                }
+                if (memberRolesIDs.contains(RolesID.HEAD_OPPOSITION)) {
+                    headOpposition = member;
+                    oppositionDebatersSet.add(member);
+                }
+                if (memberRolesIDs.contains(RolesID.MEMBER_GOVERNMENT)) {
+                    memberGovernment = member;
+                    governmentDebatersSet.add(member);
+                }
+                if (memberRolesIDs.contains(RolesID.MEMBER_OPPOSITION)) {
+                    memberOpposition = member;
+                    oppositionDebatersSet.add(member);
+                }
+                if (memberRolesIDs.contains(RolesID.JUDGE)) {
+                    allJudgesSet.add(member);
+                }
+                if (!memberRolesIDs.contains(RolesID.JUDGE)) {
+                    allDebatersSet.add(member);
+                }
+            });
+
+            governmentDebaters = new ArrayList<>(governmentDebatersSet);
+            oppositionDebaters = new ArrayList<>(oppositionDebatersSet);
+            allDebaters = new ArrayList<>(allDebatersSet);
+            judges = new ArrayList<>(allJudgesSet);
+
+//            if (isTest) {
+//                if (judges.size() != 0)
+//                    headOpposition = new ArrayList<>(judges).get(0);
+//                memberGovernment = headGovernment;
+//                memberOpposition = headGovernment;
+//            }
+
+            callback.run();
+        });
+    }
+
+    private void moveBotToVoiceChannel(Guild guild, VoiceChannel channel) {
+        if (guild != null) {
+            // Получение объекта Member для бота
+            Member botMember = guild.getSelfMember();
+
+            // Находим новый голосовой канал по ID
+            AudioChannel newChannel = guild.getVoiceChannelById(channel.getId());
+            if (newChannel != null) {
+                // Перемещение бота в новый канал
+                guild.moveVoiceMember(botMember, newChannel).queue(
+                        success -> System.out.println("Бот успешно перемещен в новый канал"),
+                        error -> System.err.println("Ошибка при перемещении бота: " + error.getMessage())
+                );
+            } else {
+                System.out.println("Голосовой канал не найден");
+            }
+        } else {
+            System.out.println("Гильдия не найдена");
+        }
     }
 
 }
